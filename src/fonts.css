@@ -1,0 +1,6 @@
+@font-face { font-family: 'M PLUS Rounded 1c'; font-style: normal; font-display: swap; font-weight: 500; src: url('@fontsource/m-plus-rounded-1c/files/m-plus-rounded-1c-japanese-500-normal.woff2') format('woff2');  }
+@font-face { font-family: 'M PLUS Rounded 1c'; font-style: normal; font-display: swap; font-weight: 500; src: url('@fontsource/m-plus-rounded-1c/files/m-plus-rounded-1c-latin-500-normal.woff2') format('woff2');  }
+@font-face { font-family: 'M PLUS Rounded 1c'; font-style: normal; font-display: swap; font-weight: 800; src: url('@fontsource/m-plus-rounded-1c/files/m-plus-rounded-1c-japanese-800-normal.woff2') format('woff2');  }
+@font-face { font-family: 'M PLUS Rounded 1c'; font-style: normal; font-display: swap; font-weight: 800; src: url('@fontsource/m-plus-rounded-1c/files/m-plus-rounded-1c-latin-800-normal.woff2') format('woff2');  }
+@font-face { font-family: 'Shippori Mincho'; font-style: normal; font-display: swap; font-weight: 800; src: url('@fontsource/shippori-mincho/files/shippori-mincho-japanese-800-normal.woff2') format('woff2');  }
+@font-face { font-family: 'Shippori Mincho'; font-style: normal; font-display: swap; font-weight: 800; src: url('@fontsource/shippori-mincho/files/shippori-mincho-latin-800-normal.woff2') format('woff2');  }

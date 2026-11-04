@@ -1,0 +1,6 @@
+{
+  "appId": "com.thebenpsych.michi",
+  "appName": "Michi",
+  "webDir": "dist",
+  "android": { "backgroundColor": "#FAF7F2" }
+}
