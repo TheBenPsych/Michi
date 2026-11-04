@@ -9,16 +9,44 @@ const native = Capacitor.isNativePlatform();
 /** Single kana are said as a tiny sentence ("か。") so the voice finishes the vowel instead of clipping it. */
 export const speakable = (text: string) => (/^[\u3041-\u30ff]{1,2}$/.test(text) ? `${text}。` : text);
 
-export async function say(raw: string, slow = false) {
+export type VoiceKind = 'f' | 'm';
+export interface JaVoice { i: number; name: string }
+let voiceCache: JaVoice[] | null = null;
+/** Japanese voices installed on the phone (index = position in the full list, as the TTS plugin wants). */
+export async function japaneseVoices(): Promise<JaVoice[]> {
+  if (voiceCache) return voiceCache;
+  try {
+    const all = native ? (await TextToSpeech.getSupportedVoices()).voices : speechSynthesis.getVoices();
+    const ja = all.map((v, i) => ({ i, name: v.name || v.voiceURI, lang: (v.lang || '').toLowerCase().replace('_', '-') })).filter((v) => v.lang.startsWith('ja')).map(({ i, name }) => ({ i, name }));
+    if (ja.length || native) voiceCache = ja;
+    return ja;
+  } catch { return []; }
+}
+const MALE = /jac|jad|male|otoya|ichiro|keita|daichi|kenji|naoki/i, FEMALE = /htm|jab|female|kyoko|haruka|ayumi|nanami|mizuki|o-ren|sayaka/i;
+/** The voice for a character type: the one picked under Me, else a best guess from the voice names. */
+export async function voiceFor(kind: VoiceKind): Promise<JaVoice | undefined> {
+  const vs = await japaneseVoices();
+  const picked = kind === 'm' ? S.settings.voiceM : S.settings.voiceF;
+  return vs.find((v) => v.name === picked) ?? vs.find((v) => (kind === 'm' ? MALE : FEMALE).test(v.name) && !(kind === 'm' ? FEMALE : MALE).test(v.name));
+}
+export const voiceLabel = (name: string) => name.replace(/^ja-jp-x-/i, '').replace(/-(local|network)$/i, (m) => (m.includes('net') ? ' (online)' : ''));
+/** Characters with a male voice. Everyone else, and words on their own, use the female voice. */
+export const voiceOf = (who: string): VoiceKind => (/^(Leo|Ben|Tanuki)$/i.test(who) ? 'm' : 'f');
+
+export async function say(raw: string, slow = false, kind: VoiceKind = 'f') {
   const text = speakable(raw);
   // Lone kana get a slightly slower rate so the vowel is held a moment longer.
   const rate = S.settings.rate * (slow ? 0.6 : 1) * (text !== raw ? 0.9 : 1);
+  const v = await voiceFor(kind);
+  // No separate male voice installed: lower the pitch a little instead.
+  const pitch = kind === 'm' && !v ? 0.82 : 1;
   try {
-    if (native) { await TextToSpeech.stop(); await TextToSpeech.speak({ text, lang: 'ja-JP', rate, pitch: 1, volume: 1 }); return; }
+    if (native) { await TextToSpeech.stop(); await TextToSpeech.speak({ text, lang: 'ja-JP', rate, pitch, volume: 1, ...(v ? { voice: v.i } : {}) }); return; }
     if ('speechSynthesis' in window) {
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'ja-JP'; u.rate = rate;
+      u.lang = 'ja-JP'; u.rate = rate; u.pitch = pitch;
+      if (v) u.voice = speechSynthesis.getVoices()[v.i] ?? null;
       speechSynthesis.speak(u);
     }
   } catch { /* no Japanese voice installed: stay silent */ }

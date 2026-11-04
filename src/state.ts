@@ -12,11 +12,11 @@ export interface State {
   cards: Record<string, Card>;
   stamps: Record<string, boolean>;   // course unit id -> unit boss beaten
   album: string[];                   // collected culture card ids
-  settings: { theme: Theme; sfx: boolean; rate: number; romaji: boolean };
+  settings: { theme: Theme; sfx: boolean; rate: number; romaji: boolean; voiceF: string; voiceM: string };
 }
 
 const KEY = 'michi:v1';
-const fresh = (): State => ({ v: 1, xp: 0, streak: 0, lastDay: '', bestCombo: 0, done: {}, bosses: {}, cards: {}, stamps: {}, album: [], settings: { theme: 'auto', sfx: true, rate: 0.8, romaji: true } });
+const fresh = (): State => ({ v: 1, xp: 0, streak: 0, lastDay: '', bestCombo: 0, done: {}, bosses: {}, cards: {}, stamps: {}, album: [], settings: { theme: 'auto', sfx: true, rate: 0.8, romaji: true, voiceF: '', voiceM: '' } });
 
 function load(): State {
   try {
