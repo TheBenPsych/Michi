@@ -268,3 +268,5 @@ svg.art { display: block; width: 100%; height: auto; }
 .acard.empty { background: none; border: 2px dashed var(--line); color: var(--muted-ink); }
 .bossface.big { width: 120px; height: 120px; margin-top: 16px; }
 .oni .bossface { width: 54px; height: 54px; flex: none; } .oni.hit .bossface { animation: shake .35s; }
+
+.soundbtn.on { background: var(--pri); color: var(--on-pri); border-color: var(--pri); }
