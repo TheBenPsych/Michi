@@ -63,3 +63,12 @@ describe('srs + progress', () => {
   });
   it('levels', () => { expect([0, 299, 300, 900, 1799, 1800].map(levelOf)).toEqual([1, 1, 2, 3, 3, 4]); expect(levelStart(3)).toBe(900); });
 });
+
+import { speakable } from '../src/audio';
+describe('speech', () => {
+  it('ends single kana with a full stop so they are not clipped', () => {
+    expect(speakable('か')).toBe('か。');
+    expect(speakable('キャ')).toBe('キャ。');
+    expect(speakable('こんにちは、みち です。')).toBe('こんにちは、みち です。');
+  });
+});

@@ -6,8 +6,13 @@ import { S } from './state';
 const native = Capacitor.isNativePlatform();
 
 /** Speak Japanese text. Falls back to the browser voice when not on Android. */
-export async function say(text: string, slow = false) {
-  const rate = S.settings.rate * (slow ? 0.6 : 1);
+/** Single kana are said as a tiny sentence ("か。") so the voice finishes the vowel instead of clipping it. */
+export const speakable = (text: string) => (/^[\u3041-\u30ff]{1,2}$/.test(text) ? `${text}。` : text);
+
+export async function say(raw: string, slow = false) {
+  const text = speakable(raw);
+  // Lone kana get a slightly slower rate so the vowel is held a moment longer.
+  const rate = S.settings.rate * (slow ? 0.6 : 1) * (text !== raw ? 0.9 : 1);
   try {
     if (native) { await TextToSpeech.stop(); await TextToSpeech.speak({ text, lang: 'ja-JP', rate, pitch: 1, volume: 1 }); return; }
     if ('speechSynthesis' in window) {
