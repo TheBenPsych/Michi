@@ -5,6 +5,7 @@ import { h, jp, bar, pct, clear } from '../ui';
 import { art } from '../art';
 import { S, save, markActive, addCards } from '../state';
 import { say, sfx, voiceOf } from '../audio';
+import { lineText } from '../voiceLines';
 import { showFlow, showTab } from '../nav';
 import { shuffle } from '../lessonGen';
 import { startLesson } from './lesson';
@@ -16,8 +17,6 @@ interface RunOpts { stopId?: string; label: string; items: Item[]; hearts?: bool
 const romaji = (w: Word) => (S.settings.romaji ? h('small', { class: 'rom' }, w.romaji) : null);
 const wordLabel = (w: Word) => h('span', { class: 'wl' }, jp(w.kana), romaji(w));
 const speak = (w: Word) => say(w.kana.replace('〜', ''));
-const tokText = (t: Token) => (typeof t === 'string' ? t : t[0]);
-const lineText = (ts: Token[]) => ts.map(tokText).join('');
 const home = () => showTab('home');
 
 export function startStop(s: Stop) {
