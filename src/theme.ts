@@ -1,0 +1,11 @@
+import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
+import { S } from './state';
+
+const mq = window.matchMedia('(prefers-color-scheme: dark)');
+export function applyTheme() {
+  const t = S.settings.theme;
+  const dark = t === 'dark' || (t === 'auto' && mq.matches);
+  document.documentElement.classList.toggle('dark', dark);
+  if (Capacitor.isNativePlatform()) SystemBars.setStyle({ style: dark ? SystemBarsStyle.Dark : SystemBarsStyle.Light }).catch(() => {});
+}
+mq.addEventListener('change', applyTheme);
