@@ -1,4 +1,5 @@
 import { KANA_BY_ID } from '../data/kana';
+import { readable } from '../script';
 import { h, jp } from '../ui';
 import { S, save, dueCards, markActive } from '../state';
 import { grade, nextIv, fmtIv, Grade, Card } from '../srs';
@@ -54,7 +55,7 @@ function session(cards: Card[]) {
       h('div', { class: 'dash' }),
       w ? h('div', { class: 'artcard sm' }, art(w.art, w.en)) : null,
       h('div', { class: 'read' }, w ? `${w.en}` : k!.romaji),
-      w ? h('div', { class: 'sub' }, w.romaji, w.kanji ? ' · ' : '', w.kanji ? jp(w.kanji) : null) : null,
+      w && readable(w.kana) ? h('div', { class: 'sub' }, w.romaji) : null,
       k && k.script === 'k' && hiraOf(k) ? h('div', { class: 'sub' }, 'Hiragana: ', jp(hiraOf(k)!.char)) : null,
       k ? soundBtn(k) : h('button', { class: 'soundbtn', onclick: () => say(sound) }, 'Hear it'));
     const grades = h('div', { class: 'grades', style: { visibility: 'hidden' } }, (['again', 'hard', 'good', 'easy'] as Grade[]).map((g) =>
@@ -70,7 +71,7 @@ function session(cards: Card[]) {
       h('div', { class: 'head', style: { alignItems: 'flex-end' } },
         h('div', null, h('div', { class: 'eyebrow' }, 'Daily review'), h('div', { class: 'title' }, `${Math.min(doneCount + 1, total)} of ${total}`)),
         h('button', { class: 'icon-btn', 'aria-label': 'Stop review', onclick: leave }, '✕')),
-      h('button', { class: 'flash', onclick: reveal, 'aria-label': 'Show the answer' }, w ? jp(w.kana, 'wordbig') : jp(k!.char, `bigkana ${k!.char.length > 1 ? 'multi' : ''}`), back),
+      h('button', { class: 'flash', onclick: reveal, 'aria-label': 'Show the answer' }, w ? jp(readable(w.kana) ? w.kana : w.romaji, 'wordbig') : jp(k!.char, `bigkana ${k!.char.length > 1 ? 'multi' : ''}`), back),
       hint, grades), leave);
   };
   render();

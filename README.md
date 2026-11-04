@@ -14,6 +14,7 @@ A free, game-like Japanese learning app for Android. Short lessons, XP, streaks,
 ## What's inside
 
 - **Course path**: one N5 path that follows the topics of Genki I. Unit 1 (meeting people) blends all of hiragana with a manga story, word stops with pictures, three grammar stops, a chat mission (3 hearts), culture cards and a timed unit boss, Gatekeeper Tanuki. Unit 2 holds katakana for now. All content and drawings are original.
+- **Pacing**: you never see kana before it is taught. Anything with unlearned kana shows in romaji with English and switches to kana by itself once you learn it (`src/script.ts`). Each early kana lesson is followed by a "Read it" stop whose words use only the kana learned so far. A test checks this for every stop.
 - **Kana lessons**: 13 per script (vowels to combos like きゃ). Each one teaches the kana, then mixes games: read it, pick the kana, listen, type the reading, match pairs and trace strokes.
 - **Bosses**: the Kana Oni (hiragana) and the Katakana Tengu. Beat one to unlock the next unit, or to skip ahead if you already know the kana.
 - **Review**: kana and word cards (Again / Hard / Good / Easy) scheduled with spaced repetition.
