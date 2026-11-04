@@ -2,6 +2,10 @@ import { Capacitor } from '@capacitor/core';
 import { TextToSpeech } from '@capacitor-community/text-to-speech';
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { S } from './state';
+import { VoiceKind, clipKey } from './voiceLines';
+import CLIPS from './data/voiceClips.json';
+export { voiceOf } from './voiceLines';
+export type { VoiceKind } from './voiceLines';
 
 const native = Capacitor.isNativePlatform();
 
@@ -9,7 +13,6 @@ const native = Capacitor.isNativePlatform();
 /** Single kana are said as a tiny sentence ("か。") so the voice finishes the vowel instead of clipping it. */
 export const speakable = (text: string) => (/^[\u3041-\u30ff]{1,2}$/.test(text) ? `${text}。` : text);
 
-export type VoiceKind = 'f' | 'm';
 export interface JaVoice { i: number; name: string }
 let voiceCache: JaVoice[] | null = null;
 /** Japanese voices installed on the phone (index = position in the full list, as the TTS plugin wants). */
@@ -32,10 +35,22 @@ export async function voiceFor(kind: VoiceKind): Promise<JaVoice | undefined> {
   return vs.find((v) => v.name === picked) ?? match.find((v) => /network/i.test(v.name)) ?? match[0];
 }
 export const voiceLabel = (name: string) => name.replace(/^ja-jp-x-/i, '').replace(/-(local|network)$/i, (m) => (m.includes('net') ? ' (online)' : ''));
-/** Characters with a male voice. Everyone else, and words on their own, use the female voice. */
-export const voiceOf = (who: string): VoiceKind => (/^(Leo|Ben|Tanuki)$/i.test(who) ? 'm' : 'f');
+const clips = new Set<string>(CLIPS);
+let clipEl: HTMLAudioElement | null = null;
+/** Play a bundled natural-voice recording of this line, if there is one. Rate 0.8 (the default) plays it as recorded. */
+function playClip(text: string, kind: VoiceKind, slow: boolean): boolean {
+  const key = clipKey(kind, text);
+  if (!clips.has(key)) return false;
+  clipEl?.pause();
+  if (native) TextToSpeech.stop().catch(() => {}); else if ('speechSynthesis' in window) speechSynthesis.cancel();
+  clipEl = new Audio(`voice/${key}.mp3`);
+  clipEl.playbackRate = Math.min(1.5, Math.max(0.5, (S.settings.rate / 0.8) * (slow ? 0.7 : 1)));
+  clipEl.play().catch(() => { clipEl = null; speakWith(text, S.settings.rate, undefined); });
+  return true;
+}
 
 export async function say(raw: string, slow = false, kind: VoiceKind = 'f') {
+  if (playClip(raw, kind, slow)) return;
   const text = speakable(raw);
   // Lone kana get a slightly slower rate so the vowel is held a moment longer.
   const rate = S.settings.rate * (slow ? 0.6 : 1) * (text !== raw ? 0.9 : 1);
@@ -45,6 +60,7 @@ export async function say(raw: string, slow = false, kind: VoiceKind = 'f') {
 /** Speak with one exact voice (used by the voice sampler). Pitch stays natural: lowering it sounds robotic. */
 export async function speakWith(text: string, rate = S.settings.rate, v?: JaVoice, pitch = 1) {
   try {
+    clipEl?.pause();
     if (native) { await TextToSpeech.stop(); await TextToSpeech.speak({ text, lang: 'ja-JP', rate, pitch, volume: 1, ...(v ? { voice: v.i } : {}) }); return; }
     if ('speechSynthesis' in window) {
       speechSynthesis.cancel();
