@@ -22,7 +22,8 @@ function run(r: Run) {
   const missed = new Map<string, Kana>();
   const hp = r.kind === 'boss' ? r.queue.length : 0;
   let bossHp = hp;
-  const usesHearts = r.kind !== 'drill';
+  // Hearts only in boss fights: practice stays relaxed and mistakes just come back later.
+  const usesHearts = r.kind === 'boss';
 
   const quit = () => { if (i === 0 || r.kind === 'drill' || confirm('Leave this lesson? Progress in it will be lost.')) showTab(r.back); };
 
@@ -72,7 +73,7 @@ function run(r: Run) {
         // Ask again later in a new form. In a boss fight this also means one more round.
         r.queue.push(retryQ(k!, r.pool));
         msg = `${k!.char} is "${k!.romaji}"`;
-        extra = hearts > 0 ? `${hearts} ♥ left` : 'Out of hearts';
+        extra = !usesHearts ? 'Again later' : hearts > 0 ? `${hearts} ♥ left` : 'Out of hearts';
       }
       const hd = foot.parentElement?.querySelector('.hearts'); if (hd) hd.textContent = `♥ ${hearts}`;
       foot.append(h('div', { class: `fb ${res.ok ? 'ok' : 'no'}` }, h('span', null, msg), h('span', null, extra)));
