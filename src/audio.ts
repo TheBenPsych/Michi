@@ -27,7 +27,9 @@ const MALE = /jac|jad|male|otoya|ichiro|keita|daichi|kenji|naoki/i, FEMALE = /ht
 export async function voiceFor(kind: VoiceKind): Promise<JaVoice | undefined> {
   const vs = await japaneseVoices();
   const picked = kind === 'm' ? S.settings.voiceM : S.settings.voiceF;
-  return vs.find((v) => v.name === picked) ?? vs.find((v) => (kind === 'm' ? MALE : FEMALE).test(v.name) && !(kind === 'm' ? FEMALE : MALE).test(v.name));
+  const match = vs.filter((v) => (kind === 'm' ? MALE : FEMALE).test(v.name) && !(kind === 'm' ? FEMALE : MALE).test(v.name));
+  // Online (network) voices usually sound much more natural than the offline ones.
+  return vs.find((v) => v.name === picked) ?? match.find((v) => /network/i.test(v.name)) ?? match[0];
 }
 export const voiceLabel = (name: string) => name.replace(/^ja-jp-x-/i, '').replace(/-(local|network)$/i, (m) => (m.includes('net') ? ' (online)' : ''));
 /** Characters with a male voice. Everyone else, and words on their own, use the female voice. */
@@ -37,9 +39,11 @@ export async function say(raw: string, slow = false, kind: VoiceKind = 'f') {
   const text = speakable(raw);
   // Lone kana get a slightly slower rate so the vowel is held a moment longer.
   const rate = S.settings.rate * (slow ? 0.6 : 1) * (text !== raw ? 0.9 : 1);
-  const v = await voiceFor(kind);
-  // No separate male voice installed: lower the pitch a little instead.
-  const pitch = kind === 'm' && !v ? 0.82 : 1;
+  await speakWith(text, rate, await voiceFor(kind));
+}
+
+/** Speak with one exact voice (used by the voice sampler). Pitch stays natural: lowering it sounds robotic. */
+export async function speakWith(text: string, rate = S.settings.rate, v?: JaVoice, pitch = 1) {
   try {
     if (native) { await TextToSpeech.stop(); await TextToSpeech.speak({ text, lang: 'ja-JP', rate, pitch, volume: 1, ...(v ? { voice: v.i } : {}) }); return; }
     if ('speechSynthesis' in window) {

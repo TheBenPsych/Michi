@@ -5,7 +5,7 @@ import { UNITS, CHART_ROWS, KANA_BY_ID, chartChar } from '../data/kana';
 import { COURSE, CULTURE, ALL_STOPS } from '../data/course';
 import { jp } from '../ui';
 import { cultureCard } from './stops';
-import { say, hasVoice, japaneseVoices, voiceFor, voiceLabel, VoiceKind } from '../audio';
+import { say, hasVoice, japaneseVoices, voiceFor, voiceLabel, VoiceKind, speakWith, JaVoice } from '../audio';
 import { showTab } from '../nav';
 import { applyTheme } from '../theme';
 import { header } from './home';
@@ -47,6 +47,7 @@ export function meTab(): HTMLElement {
       h('div', { class: 'setting' }, h('b', null, 'Romaji help'), h('button', { class: `toggle ${S.settings.romaji ? 'on' : ''}`, role: 'switch', 'aria-checked': String(S.settings.romaji), 'aria-label': 'Show romaji under words', onclick: () => { S.settings.romaji = !S.settings.romaji; save(); showTab('me'); } })),
       h('div', { class: 'setting' }, h('b', null, 'Voice speed'), seg<number>([[0.6, 'Slow'], [0.8, 'Normal'], [1, 'Fast']], S.settings.rate, (v) => { S.settings.rate = v; })),
       voiceRow('f'), voiceRow('m'),
+      h('div', { class: 'setting' }, h('div', null, h('b', null, 'Voice sampler'), h('div', { class: 'small' }, 'Hear every Japanese voice on this phone')), h('button', { class: 'soundbtn', onclick: sampler }, 'Open')),
       h('div', { class: 'setting', style: { flexWrap: 'wrap' } }, h('b', null, 'Test voice'), h('div', { class: 'pills' }, ['か', 'し', 'つ', 'きゃ', 'ん'].map((k) => h('button', { class: 'soundbtn', lang: 'ja', onclick: () => say(k) }, k)), h('button', { class: 'soundbtn', onclick: () => say('こんにちは、みち です。') }, 'こんにちは')), voiceNote)),
     h('button', { class: 'btn ghost', onclick: () => { if (confirm('Erase all progress, XP and review cards? This cannot be undone.') && confirm('Are you sure?')) { resetAll(); applyTheme(); showTab('home'); } } }, 'Reset progress'),
     h('p', { class: 'small' }, 'Michi v', __APP_VERSION__, '. Stroke data from KanjiVG by Ulrich Apel (CC BY-SA 3.0). Fonts: M PLUS Rounded 1c and Shippori Mincho (SIL Open Font License). Progress is saved on this device only.'));
@@ -64,7 +65,7 @@ function voiceRow(kind: VoiceKind) {
   const btn = h('button', { class: 'soundbtn' }, 'Auto');
   const sample = kind === 'm' ? 'こんにちは。レオです。' : 'こんにちは。ゆきです。';
   const key = kind === 'm' ? 'voiceM' : 'voiceF';
-  const label = async () => { const v = await voiceFor(kind); btn.textContent = `${S.settings[key] ? '' : 'Auto: '}${v ? voiceLabel(v.name) : kind === 'm' ? 'lower pitch' : 'phone default'}`; };
+  const label = async () => { const v = await voiceFor(kind); btn.textContent = `${S.settings[key] ? '' : 'Auto: '}${v ? voiceLabel(v.name) : kind === 'm' ? 'no male voice found' : 'phone default'}`; };
   btn.addEventListener('click', async () => {
     const vs = await japaneseVoices();
     const names = ['', ...vs.map((v) => v.name)];
@@ -73,4 +74,23 @@ function voiceRow(kind: VoiceKind) {
   });
   label();
   return h('div', { class: 'setting' }, h('div', null, h('b', null, kind === 'm' ? 'Male voice' : 'Female voice'), h('div', { class: 'small' }, kind === 'm' ? 'Leo and other men' : 'Yuki, Mei and single words')), btn);
+}
+
+/** Lists every Japanese voice on the phone with a play button, so the learner can pick by ear. */
+async function sampler() {
+  const vs = await japaneseVoices();
+  const bg = h('div', { class: 'sheet-bg', onclick: (e: Event) => { if (e.target === bg) bg.remove(); } });
+  const row = (v: JaVoice, n: number) => h('div', { class: 'setting', style: { flexWrap: 'wrap' } },
+    h('div', null, h('b', null, `Voice ${n + 1}`), h('div', { class: 'small' }, voiceLabel(v.name))),
+    h('div', { class: 'pills' },
+      h('button', { class: 'soundbtn sm', onclick: () => speakWith('はじめまして。レオです。アメリカじんです。', S.settings.rate, v) }, 'Play'),
+      h('button', { class: `soundbtn sm ${S.settings.voiceM === v.name ? 'on' : ''}`, onclick: () => { S.settings.voiceM = v.name; save(); bg.remove(); showTab('me'); } }, 'Use for men'),
+      h('button', { class: `soundbtn sm ${S.settings.voiceF === v.name ? 'on' : ''}`, onclick: () => { S.settings.voiceF = v.name; save(); bg.remove(); showTab('me'); } }, 'Use for women')));
+  bg.append(h('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Voice sampler' },
+    h('div', { class: 'title' }, 'Voice sampler'),
+    h('div', { class: 'small' }, vs.length ? `${vs.length} Japanese voice${vs.length === 1 ? '' : 's'} on this phone. Voices marked (online) need internet and usually sound the most natural.` : 'No Japanese voices found.'),
+    vs.map(row),
+    h('div', { class: 'small' }, 'For more voices: Settings > System > Languages > Text-to-speech > tap the gear next to Google > Install voice data > Japanese.'),
+    h('button', { class: 'btn ghost', onclick: () => bg.remove() }, 'Close')));
+  document.body.append(bg);
 }
