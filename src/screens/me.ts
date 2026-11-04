@@ -5,7 +5,7 @@ import { UNITS, CHART_ROWS, KANA_BY_ID, chartChar } from '../data/kana';
 import { COURSE, CULTURE, ALL_STOPS } from '../data/course';
 import { jp } from '../ui';
 import { cultureCard } from './stops';
-import { say, hasVoice } from '../audio';
+import { say, hasVoice, japaneseVoices, voiceFor, voiceLabel, VoiceKind } from '../audio';
 import { showTab } from '../nav';
 import { applyTheme } from '../theme';
 import { header } from './home';
@@ -15,6 +15,7 @@ export function meTab(): HTMLElement {
   const cards = Object.values(S.cards);
   const cu = currentUnit();
   const voiceNote = h('div', { class: 'small' });
+  japaneseVoices().then((vs) => { if (vs.length === 1) voiceNote.textContent = 'Only one Japanese voice is installed. For a separate male voice, open Settings > System > Languages > Text-to-speech > Google > Install voice data > Japanese, and pick a second voice.'; });
   hasVoice().then((ok) => { if (!ok) voiceNote.textContent = 'No Japanese voice found. On Android, open Settings > System > Languages > Text-to-speech, choose Google, and install Japanese voice data.'; });
   const seg = <T extends string | number>(opts: [T, string][], cur: T, set: (v: T) => void) =>
     h('div', { class: 'seg' }, opts.map(([v, t]) => h('button', { class: v === cur ? 'on' : '', 'aria-pressed': String(v === cur), onclick: () => { set(v); save(); showTab('me'); } }, t)));
@@ -45,6 +46,7 @@ export function meTab(): HTMLElement {
       h('div', { class: 'setting' }, h('b', null, 'Sound effects'), h('button', { class: `toggle ${S.settings.sfx ? 'on' : ''}`, role: 'switch', 'aria-checked': String(S.settings.sfx), 'aria-label': 'Sound effects', onclick: () => { S.settings.sfx = !S.settings.sfx; save(); showTab('me'); } })),
       h('div', { class: 'setting' }, h('b', null, 'Romaji help'), h('button', { class: `toggle ${S.settings.romaji ? 'on' : ''}`, role: 'switch', 'aria-checked': String(S.settings.romaji), 'aria-label': 'Show romaji under words', onclick: () => { S.settings.romaji = !S.settings.romaji; save(); showTab('me'); } })),
       h('div', { class: 'setting' }, h('b', null, 'Voice speed'), seg<number>([[0.6, 'Slow'], [0.8, 'Normal'], [1, 'Fast']], S.settings.rate, (v) => { S.settings.rate = v; })),
+      voiceRow('f'), voiceRow('m'),
       h('div', { class: 'setting', style: { flexWrap: 'wrap' } }, h('b', null, 'Test voice'), h('div', { class: 'pills' }, ['か', 'し', 'つ', 'きゃ', 'ん'].map((k) => h('button', { class: 'soundbtn', lang: 'ja', onclick: () => say(k) }, k)), h('button', { class: 'soundbtn', onclick: () => say('こんにちは、みち です。') }, 'こんにちは')), voiceNote)),
     h('button', { class: 'btn ghost', onclick: () => { if (confirm('Erase all progress, XP and review cards? This cannot be undone.') && confirm('Are you sure?')) { resetAll(); applyTheme(); showTab('home'); } } }, 'Reset progress'),
     h('p', { class: 'small' }, 'Michi v', __APP_VERSION__, '. Stroke data from KanjiVG by Ulrich Apel (CC BY-SA 3.0). Fonts: M PLUS Rounded 1c and Shippori Mincho (SIL Open Font License). Progress is saved on this device only.'));
@@ -55,4 +57,20 @@ function showCard(id: string) {
   const bg = h('div', { class: 'sheet-bg', onclick: (e: Event) => { if (e.target === bg) bg.remove(); } });
   bg.append(h('div', { class: 'sheet', role: 'dialog', 'aria-label': c.title }, cultureCard(c), h('button', { class: 'btn ghost', onclick: () => bg.remove() }, 'Close')));
   document.body.append(bg);
+}
+
+/** Tap to cycle through the phone's Japanese voices for female or male characters. */
+function voiceRow(kind: VoiceKind) {
+  const btn = h('button', { class: 'soundbtn' }, 'Auto');
+  const sample = kind === 'm' ? 'こんにちは。レオです。' : 'こんにちは。ゆきです。';
+  const key = kind === 'm' ? 'voiceM' : 'voiceF';
+  const label = async () => { const v = await voiceFor(kind); btn.textContent = `${S.settings[key] ? '' : 'Auto: '}${v ? voiceLabel(v.name) : kind === 'm' ? 'lower pitch' : 'phone default'}`; };
+  btn.addEventListener('click', async () => {
+    const vs = await japaneseVoices();
+    const names = ['', ...vs.map((v) => v.name)];
+    S.settings[key] = names[(names.indexOf(S.settings[key]) + 1) % names.length]; save();
+    await label(); say(sample, false, kind);
+  });
+  label();
+  return h('div', { class: 'setting' }, h('div', null, h('b', null, kind === 'm' ? 'Male voice' : 'Female voice'), h('div', { class: 'small' }, kind === 'm' ? 'Leo and other men' : 'Yuki, Mei and single words')), btn);
 }

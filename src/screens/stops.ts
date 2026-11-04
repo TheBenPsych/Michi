@@ -4,7 +4,7 @@ import { LESSONS } from '../data/kana';
 import { h, jp, bar, pct, clear } from '../ui';
 import { art } from '../art';
 import { S, save, markActive, addCards } from '../state';
-import { say, sfx } from '../audio';
+import { say, sfx, voiceOf } from '../audio';
 import { showFlow, showTab } from '../nav';
 import { shuffle } from '../lessonGen';
 import { startLesson } from './lesson';
@@ -281,18 +281,18 @@ function storyScreen(id: string, st: Story) {
   const draw = () => {
     clear(page).append(...st.panels.map((p, i) => h('div', { class: `panel ${i < shown ? 'on' : ''}` }, i < shown ? [
       art(p.art, ''),
-      ...p.lines.map((l) => h('button', { class: 'bubble', lang: 'ja', 'aria-label': `${l.who}: ${lineText(l.tokens)}`, onclick: () => say(lineText(l.tokens)) },
+      ...p.lines.map((l) => h('button', { class: 'bubble', lang: 'ja', 'aria-label': `${l.who}: ${lineText(l.tokens)}`, onclick: () => say(lineText(l.tokens), false, voiceOf(l.who)) },
         l.tokens.map((t) => (typeof t === 'string' ? t : h('span', { class: 'tw', onclick: (e: Event) => { e.stopPropagation(); showGloss(t[1]); } }, t[0]))))),
       showEn ? h('div', { class: 'en' }, p.lines.map((l) => l.en).join(' ')) : null,
     ] : h('span', { class: 'q' }, '?'))));
   };
   const nextBtn = h('button', { class: 'btn', onclick: () => {
-    if (shown < st.panels.length) { shown++; draw(); const l = st.panels[shown - 1].lines[0]; say(lineText(l.tokens)); nextBtn.textContent = shown < st.panels.length ? 'Next panel' : 'Quick check'; }
+    if (shown < st.panels.length) { shown++; draw(); const l = st.panels[shown - 1].lines[0]; say(lineText(l.tokens), false, voiceOf(l.who)); nextBtn.textContent = shown < st.panels.length ? 'Next panel' : 'Quick check'; }
     else runQuiz({ stopId: id, label: st.title, items: st.quiz.map((qq) => chooseItem({ t: 'choose', prompt: qq.q, options: qq.options, a: qq.a })), onWin: () => `You read "${st.title}".` });
   } }, 'Next panel');
   const enBtn = h('button', { class: 'linkbtn', onclick: () => { showEn = !showEn; enBtn.textContent = showEn ? 'Hide English' : 'Show English'; draw(); } }, 'Show English');
   draw();
-  setTimeout(() => say(lineText(st.panels[0].lines[0].tokens)), 300);
+  setTimeout(() => { const l = st.panels[0].lines[0]; say(lineText(l.tokens), false, voiceOf(l.who)); }, 300);
   showFlow(h('div', { class: 'screen flow' },
     h('div', { class: 'ltop' }, h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: home }, '✕'), h('div', { class: 'eyebrow', style: { flex: '1' } }, `Story · ${st.title}`), enBtn),
     page, glossBar, h('div', { style: { flex: '1' } }), nextBtn), home);
@@ -311,15 +311,15 @@ function missionScreen(id: string, m: Mission) {
     const done = m.steps.slice(0, step).filter((s) => 'goal' in s).length;
     clear(goalEl).append(h('b', null, `Goal: ${m.goal}`), h('div', null, goals.map((g, i) => h('span', { class: i < done ? 'ok' : '' }, `${i < done ? '✓' : '○'} ${g}`))));
   };
-  const npc = (text: string, en: string) => chat.append(h('div', { class: 'msg them' }, art('mei', '', 'av'), h('button', { class: 'say', lang: 'ja', onclick: () => say(text) }, jp(text), h('small', null, en))));
+  const npc = (text: string, en: string) => chat.append(h('div', { class: 'msg them' }, art('mei', '', 'av'), h('button', { class: 'say', lang: 'ja', onclick: () => say(text, false, voiceOf(m.npc)) }, jp(text), h('small', null, en))));
   const advance = () => {
     syncTop(); clear(choicesEl);
     const s = m.steps[step];
     if (!s) return complete(id, 40 - mistakes * 10, pct(goals.length, goals.length + mistakes), 0, `${m.npc} is your new friend!`, 'Mission complete!', '友');
-    if ('npc' in s) { npc(s.npc, s.en); say(s.npc); step++; setTimeout(advance, 900); chat.lastElementChild?.scrollIntoView({ block: 'nearest' }); return; }
+    if ('npc' in s) { npc(s.npc, s.en); say(s.npc, false, voiceOf(m.npc)); step++; setTimeout(advance, 900); chat.lastElementChild?.scrollIntoView({ block: 'nearest' }); return; }
     for (const c of shuffle(s.choices)) {
       choicesEl.append(h('button', { class: 'opt jpopt', lang: 'ja', onclick: () => {
-        if (c.ok) { sfx('good'); chat.append(h('div', { class: 'msg me' }, jp(c.jp))); say(c.jp); step++; advance(); }
+        if (c.ok) { sfx('good'); chat.append(h('div', { class: 'msg me' }, jp(c.jp))); say(c.jp, false, voiceOf('Ben')); step++; advance(); }
         else {
           sfx('bad'); hearts--; mistakes++;
           chat.append(h('div', { class: 'msg me bad' }, jp(c.jp, 'strike'), h('small', null, `−1 heart · ${c.why}`)));
