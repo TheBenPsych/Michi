@@ -2,6 +2,22 @@
 import type { Word, Story, Grammar, Mission, Culture } from './course';
 
 export const WORDS_U1: Word[] = [
+  // First reading words: built only from kana taught just before (vowels + K, then S, then T)
+  { id: 'ai', kana: 'あい', romaji: 'ai', en: 'love', art: 'love' },
+  { id: 'ie', kana: 'いえ', romaji: 'ie', en: 'house', art: 'house' },
+  { id: 'kao', kana: 'かお', romaji: 'kao', en: 'face', art: 'face' },
+  { id: 'ao', kana: 'あお', romaji: 'ao', en: 'blue', art: 'blue' },
+  { id: 'ike', kana: 'いけ', romaji: 'ike', en: 'pond', art: 'pond' },
+  { id: 'kasa', kana: 'かさ', romaji: 'kasa', en: 'umbrella', art: 'umbrella' },
+  { id: 'sushi', kana: 'すし', romaji: 'sushi', en: 'sushi', art: 'sushi' },
+  { id: 'isu', kana: 'いす', romaji: 'isu', en: 'chair', art: 'chair' },
+  { id: 'shio', kana: 'しお', romaji: 'shio', alts: ['sio'], en: 'salt', art: 'salt' },
+  { id: 'suika', kana: 'すいか', romaji: 'suika', en: 'watermelon', art: 'watermelon' },
+  { id: 'kuchi', kana: 'くち', romaji: 'kuchi', alts: ['kuti'], en: 'mouth', art: 'mouth' },
+  { id: 'te', kana: 'て', romaji: 'te', en: 'hand', art: 'hand' },
+  { id: 'tako', kana: 'たこ', romaji: 'tako', en: 'octopus', art: 'octopus' },
+  { id: 'kutsu', kana: 'くつ', romaji: 'kutsu', alts: ['kutu'], en: 'shoes', art: 'shoes' },
+  { id: 'tsukue', kana: 'つくえ', romaji: 'tsukue', alts: ['tukue'], en: 'desk', art: 'desk' },
   // Greetings
   { id: 'ohayou', kana: 'おはよう', romaji: 'ohayou', alts: ['ohayo', 'ohayoo'], en: 'good morning', art: 'sunrise', note: 'Casual. Add ございます to be polite: おはようございます.' },
   { id: 'konnichiwa', kana: 'こんにちは', romaji: 'konnichiwa', alts: ['konichiwa', 'konnichiha'], en: 'hello', art: 'sun', note: 'The last は is read "wa".' },

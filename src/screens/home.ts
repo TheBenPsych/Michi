@@ -2,6 +2,8 @@ import { UNITS } from '../data/kana';
 import { COURSE, CourseUnit, Stop } from '../data/course';
 import { h, jp, bar } from '../ui';
 import { art } from '../art';
+import { rj } from '../script';
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 import { S, currentStreak, dueCards, levelOf } from '../state';
 import { stopDone, stopUnlocked, nextStop, currentUnit, courseUnitDone, courseUnitUnlocked } from '../progress';
 import { startBoss } from './lesson';
@@ -28,7 +30,7 @@ function stopRow(s: Stop, next: Stop | undefined) {
   const sub = done ? (s.id in S.done ? `Done · best ${S.done[s.id]}%` : 'Skipped with the kana boss') : cur ? 'Up next · about 3 min' : open ? 'Ready' : 'Locked';
   return h('button', { class: `stop ${done ? 'done' : ''} ${cur ? 'cur' : ''} ${open ? '' : 'lock'} k-${s.kind}`, disabled: !open, onclick: () => startStop(s) },
     h('span', { class: 'ic jp', 'aria-hidden': 'true' }, done ? '✓' : icon(s)),
-    h('span', { class: 't' }, h('b', null, s.title), h('small', null, sub)),
+    h('span', { class: 't' }, h('b', null, s.kind === 'kana' ? s.title : rj(s.title)), h('small', null, sub)),
     cur ? h('span', { class: 'go' }, 'Start') : null);
 }
 
@@ -40,7 +42,7 @@ function unitView(u: CourseUnit) {
   return [
     h('div', null,
       h('div', { class: 'eyebrow' }, `N5 course · Unit ${u.n} of 12`),
-      h('div', { class: 'title jp' }, u.jp),
+      h('div', { class: 'title jp' }, cap(rj(u.jp))),
       h('div', { class: 'sub', style: { marginTop: '2px' } }, `${u.title} · with ${u.kanaUnit === 'hira' ? 'hiragana' : 'katakana'}`),
       h('div', { style: { marginTop: '10px' } }, bar(doneN / stops.length))),
     u.soon ? h('div', { class: 'note' }, h('b', null, 'Coming soon'), h('p', null, u.soon)) : null,
@@ -77,6 +79,6 @@ export function home(): HTMLElement {
     h('div', { class: 'units' }, COURSE.map((x) => {
       const open = courseUnitUnlocked(x);
       return h('button', { class: `ucard ${x === u ? 'on' : ''} ${open ? '' : 'lock'}`, disabled: !open, onclick: () => { viewing = x === cur ? null : x.id; showTab('home'); } },
-        h('span', { class: 'n' }, S.stamps[x.id] ? '✓' : String(x.n)), h('span', null, h('b', { class: 'jp' }, x.jp), h('small', null, x.title)));
+        h('span', { class: 'n' }, S.stamps[x.id] ? '✓' : String(x.n)), h('span', null, h('b', { class: 'jp' }, cap(rj(x.jp))), h('small', null, x.title)));
     }), h('div', { class: 'ucard lock' }, h('span', { class: 'n' }, '3'), h('span', null, h('b', null, 'More units'), h('small', null, 'On the way')))));
 }

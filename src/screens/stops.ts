@@ -6,6 +6,9 @@ import { art } from '../art';
 import { S, save, markActive, addCards } from '../state';
 import { say, sfx, voiceOf } from '../audio';
 import { lineText } from '../voiceLines';
+import { rj, rjTokens, readable, knownKana } from '../script';
+/** One drill's Japanese is all kana or all romaji, so the choices never give each other away. */
+const kset = (texts: string[]) => (readable(texts.join('')) ? knownKana() : new Set<string>());
 import { showFlow, showTab } from '../nav';
 import { shuffle } from '../lessonGen';
 import { startLesson } from './lesson';
@@ -14,8 +17,10 @@ type Done = (ok: boolean, note?: string) => void;
 interface Item { eyebrow: string; title: string; render: (done: Done) => HTMLElement; neutral?: boolean; retry?: () => Item }
 interface RunOpts { stopId?: string; label: string; items: Item[]; hearts?: boolean; boss?: CourseUnit; timer?: number; onWin?: () => string; back?: () => void }
 
-const romaji = (w: Word) => (S.settings.romaji ? h('small', { class: 'rom' }, w.romaji) : null);
-const wordLabel = (w: Word) => h('span', { class: 'wl' }, jp(w.kana), romaji(w));
+/** A word in kana once all its kana are learned, otherwise in romaji. */
+const wtxt = (w: Word) => (readable(w.kana) ? w.kana : w.romaji);
+const romaji = (w: Word) => (S.settings.romaji && readable(w.kana) ? h('small', { class: 'rom' }, w.romaji) : null);
+const wordLabel = (w: Word) => h('span', { class: 'wl' }, jp(wtxt(w)), romaji(w));
 const speak = (w: Word) => say(w.kana.replace('〜', ''));
 const home = () => showTab('home');
 
@@ -48,7 +53,7 @@ function choiceGrid(opts: Word[], right: Word, cell: (w: Word) => Element, done:
       b.classList.add(ok ? 'ok' : 'no', ok ? 'pop' : 'shake');
       btns.forEach((x, i) => { if (opts[i].id === right.id) x.classList.add('ok'); x.setAttribute('disabled', ''); });
       speak(right); after?.();
-      done(ok, `${right.kana}${right.kanji ? ` ${right.kanji}` : ''} · ${right.en}${right.note ? `. ${right.note}` : ''}`);
+      done(ok, `${wtxt(right)} · ${right.en}${right.note ? `. ${rj(right.note)}` : ''}`);
     } }, cell(o));
     return b;
   });
@@ -59,15 +64,15 @@ const intro = (w: Word): Item => ({
   eyebrow: 'New word', title: w.en, neutral: true,
   render: (done) => { setTimeout(() => speak(w), 250); return h('div', { class: 'stage center' },
     h('div', { class: 'artcard' }, art(w.art, w.en)),
-    h('div', null, jp(w.kana, 'wordbig'), w.kanji ? jp(w.kanji, 'kanji') : null),
-    h('div', { class: 'read' }, w.romaji),
+    h('div', null, jp(wtxt(w), 'wordbig')),
+    readable(w.kana) ? h('div', { class: 'read' }, w.romaji) : null,
     h('button', { class: 'soundbtn', onclick: () => speak(w) }, 'Hear it'),
-    w.note ? h('div', { class: 'sub' }, w.note) : null,
+    w.note ? h('div', { class: 'sub' }, rj(w.note)) : null,
     h('button', { class: 'btn', onclick: () => done(true) }, 'Got it')); },
 });
 function pickPicture(w: Word, pool: Word[]): Item {
   return { eyebrow: 'Picture match', title: 'Which picture is this?', retry: () => pickPicture(w, pool),
-    render: (done) => h('div', { class: 'stage' }, h('div', { class: 'prompt' }, jp(w.kana, 'wordbig'), romaji(w), h('button', { class: 'soundbtn sm', onclick: () => speak(w) }, 'Hear it')), choiceGrid(options(w, pool), w, picCell, done)) };
+    render: (done) => h('div', { class: 'stage' }, h('div', { class: 'prompt' }, jp(wtxt(w), 'wordbig'), romaji(w), h('button', { class: 'soundbtn sm', onclick: () => speak(w) }, 'Hear it')), choiceGrid(options(w, pool), w, picCell, done)) };
 }
 function listenPick(w: Word, pool: Word[]): Item {
   return { eyebrow: 'Listen and pick', title: 'Tap what you hear', retry: () => listenPick(w, pool),
@@ -88,13 +93,13 @@ function typeWord(w: Word): Item {
         const v = input.value.trim().toLowerCase().replace(/[\s'-]/g, '');
         const ok = v === w.romaji || !!w.alts?.includes(v);
         input.classList.add(ok ? 'ok' : 'no'); input.readOnly = true; check.remove(); input.blur(); speak(w);
-        done(ok, `${w.kana} · ${w.romaji}`);
+        done(ok, readable(w.kana) ? `${w.kana} · ${w.romaji}` : w.romaji);
       };
       input.addEventListener('input', () => { check.disabled = !input.value.trim(); });
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
       check.addEventListener('click', submit);
       setTimeout(() => input.focus(), 200);
-      return h('div', { class: 'stage' }, h('div', { class: 'artcard sm' }, art(w.art, w.en)), h('div', { class: 'center' }, jp(w.kana, 'wordbig')), input, check);
+      return h('div', { class: 'stage' }, h('div', { class: 'artcard sm' }, art(w.art, w.en)), readable(w.kana) ? h('div', { class: 'center' }, jp(w.kana, 'wordbig')) : null, input, check);
     } };
 }
 function matchItem(ws: Word[]): Item {
@@ -126,36 +131,38 @@ function wordItems(ws: Word[]): Item[] {
 
 // ---------- Grammar games ----------
 function patternCard(g: Grammar): Item {
-  return { eyebrow: 'Pattern card', title: g.title, neutral: true,
+  return { eyebrow: 'Pattern card', title: rj(g.title), neutral: true,
     render: (done) => h('div', { class: 'stage' },
-      h('div', { class: 'pattern' }, h('div', { class: 'pat' }, g.pattern.map((p) => /^[A-Z…]+$/.test(p) ? h('span', { class: 'slot' }, p) : jp(p, 'pj')), h('span', { class: 'mean' }, `= ${g.meaning}`)),
-        h('ul', null, g.points.map((p) => h('li', null, p)))),
-      g.examples.map((e) => h('button', { class: 'example', onclick: () => say(e.jp) }, jp(e.jp), h('small', null, e.en))),
+      h('div', { class: 'pattern' }, h('div', { class: 'pat' }, g.pattern.map((p) => /^[A-Z…]+$/.test(p) ? h('span', { class: 'slot' }, p) : jp(rj(p), 'pj')), h('span', { class: 'mean' }, `= ${g.meaning}`)),
+        h('ul', null, g.points.map((p) => h('li', null, rj(p))))),
+      g.examples.map((e) => h('button', { class: 'example', onclick: () => say(e.jp) }, jp(rj(e.jp)), h('small', null, e.en))),
       h('div', { class: 'small center' }, 'Tap an example to hear it.'),
       h('button', { class: 'btn', onclick: () => done(true) }, 'Let\u2019s practice')) };
 }
 function tilesItem(d: Extract<Drill, { t: 'tiles' }>): Item {
   return { eyebrow: 'Build the sentence', title: `"${d.en}"`, retry: () => tilesItem(d),
     render: (done) => {
+      const k = kset([...d.answer, ...d.extra]);
       const placed: HTMLElement[] = [];
       const line = h('div', { class: 'tileline' });
       const bank = h('div', { class: 'tilebank' });
       const check = h('button', { class: 'btn', disabled: true }, 'Check');
       const sync = () => { check.disabled = placed.length !== d.answer.length; };
       for (const t of shuffle([...d.answer, ...d.extra])) {
-        const b: HTMLElement = h('button', { class: 'wtile', lang: 'ja', onclick: () => {
+        const b: HTMLElement = h('button', { class: 'wtile', lang: 'ja', 'data-t': t, onclick: () => {
           if (check.dataset.done) return;
           sfx('tap');
           if (b.parentElement === bank) { line.append(b); placed.push(b); } else { bank.append(b); placed.splice(placed.indexOf(b), 1); }
           sync();
-        } }, t);
+        } }, rj(t, k));
         bank.append(b);
       }
       check.addEventListener('click', () => {
         check.dataset.done = '1';
-        const ok = placed.map((b) => b.textContent).join('') === d.answer.join('');
+        const ok = placed.map((b) => b.dataset.t).join('') === d.answer.join('');
         line.classList.add(ok ? 'ok' : 'no'); check.remove(); say(d.answer.join(''));
-        done(ok, ok ? d.answer.join(' ') + '。' : `Answer: ${d.answer.join(' ')}。`);
+        const ans = rj(d.answer.join(' ') + '。', k);
+        done(ok, ok ? ans : `Answer: ${ans}`);
       });
       return h('div', { class: 'stage' }, line, bank, check);
     } };
@@ -165,6 +172,7 @@ function chooseItem(d: Extract<Drill, { t: 'choose' }>): Item {
   return { eyebrow: 'Pick the right one', title: isJp ? d.en ?? 'Fill the gap' : d.prompt, retry: () => chooseItem(d),
     render: (done) => {
       let answered = false;
+      const k = kset([d.prompt, ...d.options].filter((x) => /[\u3040-\u30ff]/.test(x)));
       const right = d.options[d.a];
       const opts = shuffle(d.options);
       const btns = opts.map((o) => h('button', { class: `opt ${isJp ? 'jpopt' : ''}`, lang: isJp ? 'ja' : 'en', onclick: (e: Event) => {
@@ -173,23 +181,24 @@ function chooseItem(d: Extract<Drill, { t: 'choose' }>): Item {
         b.classList.add(ok ? 'ok' : 'no', ok ? 'pop' : 'shake');
         btns.forEach((x, i) => { if (opts[i] === right) x.classList.add('ok'); x.setAttribute('disabled', ''); });
         const full = d.prompt.includes('＿') ? d.prompt.replace('＿', right) : right;
-        say(full); done(ok, full);
-      } }, o));
-      return h('div', { class: 'stage' }, isJp ? h('div', { class: 'prompt' }, jp(d.prompt, 'sent')) : null, h('div', { class: 'opts col' }, btns));
+        say(full); done(ok, rj(full, k));
+      } }, rj(o, k)));
+      return h('div', { class: 'stage' }, isJp ? h('div', { class: 'prompt' }, jp(rj(d.prompt, k), 'sent')) : null, h('div', { class: 'opts col' }, btns));
     } };
 }
 function fixItem(d: Extract<Drill, { t: 'fix' }>): Item {
   return { eyebrow: 'Spot the mistake', title: `"${d.en}"`, retry: () => fixItem(d),
     render: (done) => {
       let answered = false;
+      const k = kset([...d.tokens, d.fix]);
       const toks = d.tokens.map((t, i) => h('button', { class: 'wtile', lang: 'ja', onclick: (e: Event) => {
         if (answered) return; answered = true;
         const ok = i === d.wrong, b = e.currentTarget as HTMLElement;
         if (!ok) b.classList.add('no', 'shake');
-        const w = toks[d.wrong]; w.classList.add('fixed'); w.textContent = d.fix;
+        const w = toks[d.wrong]; w.classList.add('fixed'); w.textContent = rj(d.fix, k);
         const fixed = d.tokens.map((x, j) => (j === d.wrong ? d.fix : x)).join(' ');
-        say(fixed.replace(/ /g, '')); done(ok, `${d.tokens[d.wrong]} should be ${d.fix}: ${fixed}`);
-      } }, t));
+        say(fixed.replace(/ /g, '')); done(ok, `${rj(d.tokens[d.wrong], k)} should be ${rj(d.fix, k)}: ${rj(fixed, k)}`);
+      } }, rj(t, k)));
       return h('div', { class: 'stage' }, h('div', { class: 'small center' }, 'Tap the word that is wrong.'), h('div', { class: 'tileline' }, toks));
     } };
 }
@@ -273,15 +282,16 @@ export function complete(stopId: string | undefined, xp: number, acc: number, be
 
 // ---------- Story (manga page) ----------
 function storyScreen(id: string, st: Story) {
-  let shown = 1, showEn = false;
+  // English is on by default early on; Japanese takes over as the learner reads more kana.
+  let shown = 1, showEn = true;
   const glossBar = h('div', { class: 'gloss', 'aria-live': 'polite' }, 'Tap a bubble to hear it. Tap a highlighted word to see its meaning.');
-  const showGloss = (ref: string) => { const g = gloss(ref); clear(glossBar).append(jp(g.jp, 'gj'), h('span', null, g.word ? `${g.word.romaji} · ${g.en}` : g.en)); if (g.word) speak(g.word); };
+  const showGloss = (ref: string) => { const g = gloss(ref); clear(glossBar).append(jp(g.word ? wtxt(g.word) : rj(g.jp), 'gj'), h('span', null, g.word && readable(g.word.kana) ? `${g.word.romaji} · ${g.en}` : g.en)); if (g.word) speak(g.word); };
   const page = h('div', { class: 'manga' });
   const draw = () => {
     clear(page).append(...st.panels.map((p, i) => h('div', { class: `panel ${i < shown ? 'on' : ''}` }, i < shown ? [
       art(p.art, ''),
       ...p.lines.map((l) => h('button', { class: 'bubble', lang: 'ja', 'aria-label': `${l.who}: ${lineText(l.tokens)}`, onclick: () => say(lineText(l.tokens), false, voiceOf(l.who)) },
-        l.tokens.map((t) => (typeof t === 'string' ? t : h('span', { class: 'tw', onclick: (e: Event) => { e.stopPropagation(); showGloss(t[1]); } }, t[0]))))),
+        ((shownTxt) => l.tokens.map((t, ti) => (typeof t === 'string' ? shownTxt[ti] : h('span', { class: 'tw', onclick: (e: Event) => { e.stopPropagation(); showGloss(t[1]); } }, shownTxt[ti]))))(rjTokens(l.tokens.map((t) => (typeof t === 'string' ? t : t[0])))))),
       showEn ? h('div', { class: 'en' }, p.lines.map((l) => l.en).join(' ')) : null,
     ] : h('span', { class: 'q' }, '?'))));
   };
@@ -289,7 +299,7 @@ function storyScreen(id: string, st: Story) {
     if (shown < st.panels.length) { shown++; draw(); const l = st.panels[shown - 1].lines[0]; say(lineText(l.tokens), false, voiceOf(l.who)); nextBtn.textContent = shown < st.panels.length ? 'Next panel' : 'Quick check'; }
     else runQuiz({ stopId: id, label: st.title, items: st.quiz.map((qq) => chooseItem({ t: 'choose', prompt: qq.q, options: qq.options, a: qq.a })), onWin: () => `You read "${st.title}".` });
   } }, 'Next panel');
-  const enBtn = h('button', { class: 'linkbtn', onclick: () => { showEn = !showEn; enBtn.textContent = showEn ? 'Hide English' : 'Show English'; draw(); } }, 'Show English');
+  const enBtn = h('button', { class: 'linkbtn', onclick: () => { showEn = !showEn; enBtn.textContent = showEn ? 'Hide English' : 'Show English'; draw(); } }, 'Hide English');
   draw();
   setTimeout(() => { const l = st.panels[0].lines[0]; say(lineText(l.tokens), false, voiceOf(l.who)); }, 300);
   showFlow(h('div', { class: 'screen flow' },
@@ -310,25 +320,26 @@ function missionScreen(id: string, m: Mission) {
     const done = m.steps.slice(0, step).filter((s) => 'goal' in s).length;
     clear(goalEl).append(h('b', null, `Goal: ${m.goal}`), h('div', null, goals.map((g, i) => h('span', { class: i < done ? 'ok' : '' }, `${i < done ? '✓' : '○'} ${g}`))));
   };
-  const npc = (text: string, en: string) => chat.append(h('div', { class: 'msg them' }, art('mei', '', 'av'), h('button', { class: 'say', lang: 'ja', onclick: () => say(text, false, voiceOf(m.npc)) }, jp(text), h('small', null, en))));
+  const npc = (text: string, en: string) => chat.append(h('div', { class: 'msg them' }, art('mei', '', 'av'), h('button', { class: 'say', lang: 'ja', onclick: () => say(text, false, voiceOf(m.npc)) }, jp(rj(text)), h('small', null, en))));
   const advance = () => {
     syncTop(); clear(choicesEl);
     const s = m.steps[step];
     if (!s) return complete(id, 40 - mistakes * 10, pct(goals.length, goals.length + mistakes), 0, `${m.npc} is your new friend!`, 'Mission complete!', '友');
     if ('npc' in s) { npc(s.npc, s.en); say(s.npc, false, voiceOf(m.npc)); step++; setTimeout(advance, 900); chat.lastElementChild?.scrollIntoView({ block: 'nearest' }); return; }
+    const k = kset(s.choices.map((c) => c.jp));
     for (const c of shuffle(s.choices)) {
       choicesEl.append(h('button', { class: 'opt jpopt', lang: 'ja', onclick: () => {
-        if (c.ok) { sfx('good'); chat.append(h('div', { class: 'msg me' }, jp(c.jp))); say(c.jp, false, voiceOf('Ben')); step++; advance(); }
+        if (c.ok) { sfx('good'); chat.append(h('div', { class: 'msg me' }, jp(rj(c.jp, k)))); say(c.jp, false, voiceOf('Ben')); step++; advance(); }
         else {
           sfx('bad'); hearts--; mistakes++;
-          chat.append(h('div', { class: 'msg me bad' }, jp(c.jp, 'strike'), h('small', null, `−1 heart · ${c.why}`)));
+          chat.append(h('div', { class: 'msg me bad' }, jp(rj(c.jp, k), 'strike'), h('small', null, `−1 heart · ${rj(c.why ?? '')}`)));
           syncTop();
           if (hearts <= 0) return setTimeout(() => showFlow(h('div', { class: 'screen flow' }, h('div', { class: 'center' }, h('div', { class: 'medal bad' }, jp('休')), h('div', { class: 'title' }, 'Out of hearts'), h('div', { class: 'sub' }, 'No waiting. Try the conversation again.')),
             h('div', { style: { flex: '1' } }), h('button', { class: 'btn', onclick: () => missionScreen(id, m) }, 'Try again'), h('button', { class: 'btn ghost', onclick: home }, 'Back')), home), 700);
           (choicesEl.querySelector(`[data-jp="${c.jp}"]`) as HTMLElement | null)?.setAttribute('disabled', '');
         }
         chat.lastElementChild?.scrollIntoView({ block: 'nearest' });
-      }, 'data-jp': c.jp }, c.jp));
+      }, 'data-jp': c.jp }, rj(c.jp, k)));
     }
   };
   showFlow(h('div', { class: 'screen flow' },
@@ -346,5 +357,5 @@ function cultureScreen(id: string, c: Culture) {
     h('div', { style: { flex: '1' } }),
     h('button', { class: 'btn', onclick: () => { if (!had) S.album.push(c.id); complete(id, 0, 100, 0, `${S.album.length} card${S.album.length === 1 ? '' : 's'} in your album.`, had ? 'Card reviewed' : 'Card collected!', '集'); } }, had ? 'Done' : 'Add to my album')), home);
 }
-export const cultureCard = (c: Culture) => h('div', { class: 'ccard' }, art(c.art, c.title), h('div', { class: 'cbody' }, h('div', { class: 'row' }, h('b', null, `${c.title} · `, jp(c.jp)), h('small', null, 'Unit 1')), h('p', null, c.text)));
+export const cultureCard = (c: Culture) => h('div', { class: 'ccard' }, art(c.art, c.title), h('div', { class: 'cbody' }, h('div', { class: 'row' }, h('b', null, `${rj(c.title)} · `, jp(rj(c.jp))), h('small', null, 'Unit 1')), h('p', null, rj(c.text))));
 export const wordById = (id: string) => WORDS.get(id.replace(/^w:/, ''));

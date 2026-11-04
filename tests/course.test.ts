@@ -4,6 +4,7 @@ import { LESSONS } from '../src/data/kana';
 import { hasArt } from '../src/art';
 import { S } from '../src/state';
 import { stopUnlocked, stopDone, nextStop, courseUnitUnlocked } from '../src/progress';
+import { rj, rjTokens, readable, ALL_KANA } from '../src/script';
 
 describe('course content', () => {
   it('kana stops point at real kana lessons, and every kana lesson is on the path once', () => {
@@ -49,9 +50,42 @@ describe('course unlocking', () => {
   it('the kana boss skips kana stops, and the unit boss unlocks the next unit', () => {
     S.bosses.hira = true;
     expect(stopDone(u1[0])).toBe(true);
-    expect(nextStop()).toBe(u1[1]);
+    expect(nextStop()).toBe(u1.find((s) => s.kind !== 'kana'));
     S.stamps.u1 = true;
     expect(courseUnitUnlocked(COURSE[1])).toBe(true);
     expect(stopUnlocked(u1[5])).toBe(true);
+  });
+});
+
+describe('pacing: no kana before it is taught', () => {
+  // Walk Unit 1 in order, collecting the kana taught so far.
+  const steps: { s: (typeof ALL_STOPS)[number]; known: Set<string> }[] = [];
+  const known = new Set<string>();
+  for (const s of COURSE[0].parts.flatMap((p) => p.stops)) {
+    if (s.kind === 'kana') LESSONS.find((l) => l.id === s.id)!.kana.forEach((k) => [...k.char].forEach((c) => known.add(c)));
+    else steps.push({ s, known: new Set(known) });
+  }
+  const unknownIn = (text: string, k: Set<string>) => [...text].filter((c) => ALL_KANA.has(c) && !k.has(c) && !'ゃゅょっ'.includes(c));
+  it('"Read it" stops only use kana taught before them', () => {
+    for (const { s, known: k } of steps) if (s.kind === 'words' && s.id.startsWith('u1-kw')) for (const w of s.words) expect(readable(w.kana, k), `${s.id} ${w.kana}`).toBe(true);
+  });
+  it('everything shown on a stop is in learned kana or romaji', () => {
+    for (const { s, known: k } of steps) {
+      const texts: string[] = [];
+      if (s.kind === 'story') s.story.panels.forEach((p) => p.lines.forEach((l) => texts.push(rjTokens(l.tokens.map((t) => (typeof t === 'string' ? t : t[0])), k).join(''))));
+      if (s.kind === 'grammar') texts.push(...[s.g.title, ...s.g.pattern, ...s.g.points, ...s.g.examples.map((e) => e.jp)].map((t) => rj(t, k)));
+      if (s.kind === 'mission') s.m.steps.forEach((st) => texts.push(...('npc' in st ? [st.npc] : st.choices.flatMap((c) => [c.jp, c.why ?? ''])).map((t) => rj(t, k))));
+      if (s.kind === 'culture') texts.push(...[s.c.title, s.c.jp, s.c.text].map((t) => rj(t, k)));
+      if (s.kind === 'words') texts.push(...s.words.flatMap((w) => [readable(w.kana, k) ? w.kana : w.romaji, rj(w.note ?? '', k)]));
+      for (const t of texts) expect(unknownIn(t, k), `${s.id}: ${t}`).toEqual([]);
+    }
+  });
+  it('romaji reads naturally', () => {
+    const none = new Set<string>();
+    expect(rj('わたしは がくせいです。', none)).toBe('Watashi wa gakusei desu.');
+    expect(rj('メイさんの せんこうは なんですか。', none)).toBe('Mei-san no senkou wa nan desu ka.');
+    expect(rj('こんにちは！', none)).toBe('Konnichiwa!');
+    expect(rjTokens(['レオ', 'さん', 'は', ' ', 'がくせい', 'です', 'か', '。'], none).join('')).toBe('Leo-san wa gakusei desu ka.');
+    expect(rj('わたしは がくせいです。', new Set([...'わたしはがくせいで'].concat('す')))).toBe('わたしは がくせいです。');
   });
 });

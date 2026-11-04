@@ -5,6 +5,7 @@ import { UNITS, CHART_ROWS, KANA_BY_ID, chartChar } from '../data/kana';
 import { COURSE, CULTURE, ALL_STOPS } from '../data/course';
 import { jp } from '../ui';
 import { cultureCard } from './stops';
+import { rj } from '../script';
 import { say, hasVoice, japaneseVoices, voiceFor, voiceLabel, VoiceKind, speakWith, JaVoice } from '../audio';
 import { showTab } from '../nav';
 import { applyTheme } from '../theme';
@@ -39,7 +40,7 @@ export function meTab(): HTMLElement {
       h('div', { class: 'stat' }, h('div', { class: 'eyebrow' }, 'Bosses'), h('b', { class: 'mint' }, Object.values(S.bosses).filter(Boolean).length + Object.values(S.stamps).filter(Boolean).length))),
     h('section', null, h('div', { class: 'eyebrow', style: { marginBottom: '8px' } }, `Culture album · ${S.album.length} / ${CULTURE.length}`),
       h('div', { class: 'album' }, CULTURE.map((c) => S.album.includes(c.id)
-        ? h('button', { class: 'acard', onclick: () => showCard(c.id) }, jp(c.jp), h('small', null, c.title))
+        ? h('button', { class: 'acard', onclick: () => showCard(c.id) }, jp(rj(c.jp)), h('small', null, rj(c.title)))
         : h('div', { class: 'acard empty' }, h('small', null, 'Locked'))))),
     h('section', { class: 'card' },
       h('div', { class: 'setting' }, h('b', null, 'Theme'), seg<Theme>([['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']], S.settings.theme, (v) => { S.settings.theme = v; applyTheme(); })),
