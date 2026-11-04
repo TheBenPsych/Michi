@@ -10,11 +10,13 @@ export interface State {
   done: Record<string, number>;      // lessonId -> best accuracy %
   bosses: Record<string, boolean>;   // unitId -> beaten
   cards: Record<string, Card>;
-  settings: { theme: Theme; sfx: boolean; rate: number };
+  stamps: Record<string, boolean>;   // course unit id -> unit boss beaten
+  album: string[];                   // collected culture card ids
+  settings: { theme: Theme; sfx: boolean; rate: number; romaji: boolean };
 }
 
 const KEY = 'michi:v1';
-const fresh = (): State => ({ v: 1, xp: 0, streak: 0, lastDay: '', bestCombo: 0, done: {}, bosses: {}, cards: {}, settings: { theme: 'auto', sfx: true, rate: 0.8 } });
+const fresh = (): State => ({ v: 1, xp: 0, streak: 0, lastDay: '', bestCombo: 0, done: {}, bosses: {}, cards: {}, stamps: {}, album: [], settings: { theme: 'auto', sfx: true, rate: 0.8, romaji: true } });
 
 function load(): State {
   try {

@@ -1,8 +1,11 @@
-import { UNITS, Lesson } from '../data/kana';
+import { UNITS } from '../data/kana';
+import { COURSE, CourseUnit, Stop } from '../data/course';
 import { h, jp, bar } from '../ui';
+import { art } from '../art';
 import { S, currentStreak, dueCards, levelOf } from '../state';
-import { nextLesson, lessonUnlocked, unitUnlocked, unitDone, mastery, unitOf } from '../progress';
-import { startLesson, startBoss } from './lesson';
+import { stopDone, stopUnlocked, nextStop, currentUnit, courseUnitDone, courseUnitUnlocked } from '../progress';
+import { startBoss } from './lesson';
+import { startStop, startUnitBoss } from './stops';
 import { showTab } from '../nav';
 
 export function header() {
@@ -15,51 +18,65 @@ export function header() {
       h('div', { class: 'chip xp' }, `${S.xp} XP`)));
 }
 
-export function home(): HTMLElement {
-  const l = nextLesson(), u = unitOf(l);
-  const idx = u.lessons.indexOf(l);
-  const doneInUnit = u.lessons.filter((x) => x.id in S.done).length;
-  const due = dueCards().length;
-  const kinds = ['Meet the kana', 'Read it', 'Pick the kana', 'Listen', 'Type the reading', 'Match pairs', ...(l.trace ? ['Trace strokes'] : [])];
-  const tiles = l.kana.slice(0, 5).map((k, i) => h('div', { class: `tile kana ${mastery(k.id) !== 'n' ? 'on' : i === 0 ? 'cur' : ''}`, lang: 'ja', style: k.char.length > 1 ? { fontSize: '20px' } : null }, k.char));
-  const boss = UNITS.find((x) => unitUnlocked(x) && !S.bosses[x.id]) ?? u;
-  const nextU = UNITS[UNITS.indexOf(boss) + 1];
+let viewing: string | null = null;
+const openParts = new Set<string>();
+const ICON: Record<Stop['kind'], string> = { kana: '', story: '話', words: '語', grammar: '文', mission: '任', culture: '化' };
+const icon = (s: Stop) => (s.kind === 'kana' ? [...s.title.replace('Kana: ', '')][0] : ICON[s.kind]);
 
-  return h('main', { class: 'screen' },
-    header(),
-    h('div', null,
-      h('div', { class: 'eyebrow' }, `${u.title} · Lesson ${idx + 1} of ${u.lessons.length}`),
-      h('div', { class: 'title' }, l.title),
-      h('div', { class: 'sub' }, l.blurb),
-      h('div', { style: { marginTop: '12px' } }, bar(doneInUnit / u.lessons.length))),
-    h('div', { class: 'tiles' }, tiles),
-    h('div', { class: 'card row' },
-      h('div', null, h('h3', null, 'Review'), h('p', null, due ? `${due} card${due === 1 ? ' is' : 's are'} ready to review` : Object.keys(S.cards).length ? 'All caught up. Nice!' : 'Finish a lesson to start reviewing')),
-      h('button', { class: 'btn mint sm', onclick: () => showTab('review') }, due ? 'Review' : 'Practice')),
-    h('button', { class: 'boss row', onclick: () => startBoss(boss) },
-      h('div', null, h('div', { class: 'eyebrow' }, `${boss.title} boss`), h('div', { style: { fontSize: '16px', fontWeight: '800' } },
-        S.bosses[boss.id] ? `${boss.boss.name}: rematch any time` : `${boss.boss.name}: beat it to ${nextU ? `unlock ${nextU.title}` : 'finish kana'}`),
-        h('div', { style: { fontSize: '12px', color: 'var(--boss-sub)', marginTop: '2px' } }, unitDone(boss) ? 'Ready when you are' : 'Already know these? Win to skip ahead.')),
-      jp(boss.boss.jp, 'big')),
-    h('div', null,
-      h('div', { class: 'eyebrow', style: { marginBottom: '10px' } }, 'In this lesson'),
-      h('div', { class: 'pills' }, kinds.map((k) => h('div', { class: 'pill' }, k)))),
-    h('button', { class: 'btn', onclick: () => startLesson(l) }, l.id in S.done ? 'Practice this lesson' : 'Start lesson'),
-    path(l));
+function stopRow(s: Stop, next: Stop | undefined) {
+  const done = stopDone(s), open = stopUnlocked(s), cur = s === next;
+  const sub = done ? (s.id in S.done ? `Done · best ${S.done[s.id]}%` : 'Skipped with the kana boss') : cur ? 'Up next · about 3 min' : open ? 'Ready' : 'Locked';
+  return h('button', { class: `stop ${done ? 'done' : ''} ${cur ? 'cur' : ''} ${open ? '' : 'lock'} k-${s.kind}`, disabled: !open, onclick: () => startStop(s) },
+    h('span', { class: 'ic jp', 'aria-hidden': 'true' }, done ? '✓' : icon(s)),
+    h('span', { class: 't' }, h('b', null, s.title), h('small', null, sub)),
+    cur ? h('span', { class: 'go' }, 'Start') : null);
 }
 
-function path(cur: Lesson) {
-  return h('section', { class: 'path', 'aria-label': 'All lessons' },
-    UNITS.map((u) => [
-      h('div', { class: 'unit' }, h('div', { class: 'title', style: { fontSize: '20px' } }, u.title), jp(u.jp, 'eyebrow')),
-      u.lessons.map((l, i) => {
-        const open = lessonUnlocked(l), done = l.id in S.done;
-        return h('button', { class: `lrow ${done ? 'done' : ''} ${l === cur ? 'cur' : ''} ${open ? '' : 'lock'}`, disabled: !open, onclick: () => startLesson(l) },
-          h('div', { class: 'n' }, done ? '✓' : String(i + 1)),
-          h('div', { class: 't' }, h('b', null, l.title), h('small', null, done ? `Best ${S.done[l.id]}%` : open ? 'Ready' : 'Locked')),
-          jp(l.kana.slice(0, 5).map((k) => k.char).join(''), 'k'));
-      }),
-      h('button', { class: `lrow ${S.bosses[u.id] ? 'done' : ''}`, onclick: () => startBoss(u) },
-        h('div', { class: 'n' }, jp(u.boss.jp)), h('div', { class: 't' }, h('b', null, u.boss.name), h('small', null, S.bosses[u.id] ? 'Defeated' : 'Unit boss · 20 rounds'))),
-    ]));
+function unitView(u: CourseUnit) {
+  const next = nextStop();
+  const stops = u.parts.flatMap((p) => p.stops);
+  const doneN = stops.filter(stopDone).length;
+  const kanaBoss = UNITS.find((x) => x.id === u.kanaUnit)!;
+  return [
+    h('div', null,
+      h('div', { class: 'eyebrow' }, `N5 course · Unit ${u.n} of 12`),
+      h('div', { class: 'title jp' }, u.jp),
+      h('div', { class: 'sub', style: { marginTop: '2px' } }, `${u.title} · with ${u.kanaUnit === 'hira' ? 'hiragana' : 'katakana'}`),
+      h('div', { style: { marginTop: '10px' } }, bar(doneN / stops.length))),
+    u.soon ? h('div', { class: 'note' }, h('b', null, 'Coming soon'), h('p', null, u.soon)) : null,
+    ...u.parts.map((p, pi) => {
+      const key = `${u.id}-${pi}`, pd = p.stops.filter(stopDone).length;
+      const isOpen = openParts.has(key) || p.stops.includes(next!) || (u.parts.length === 1);
+      return h('section', { class: `part ${isOpen ? 'open' : ''}` },
+        h('button', { class: 'phead', 'aria-expanded': String(isOpen), onclick: () => { if (openParts.has(key)) openParts.delete(key); else openParts.add(key); showTab('home'); } },
+          h('b', null, `Part ${pi + 1} · ${p.title}`), h('span', null, `${pd} of ${p.stops.length}`)),
+        isOpen ? h('div', { class: 'stops' }, p.stops.map((s) => stopRow(s, next))) : null);
+    }),
+    S.bosses[kanaBoss.id] ? null : h('button', { class: 'boss row', onclick: () => startBoss(kanaBoss) },
+      h('div', null, h('div', { class: 'eyebrow' }, `Already know ${u.kanaUnit === 'hira' ? 'hiragana' : 'katakana'}?`),
+        h('div', { style: { fontSize: '15px', fontWeight: '800' } }, `Beat ${kanaBoss.boss.name} to skip the kana stops`)),
+      jp(kanaBoss.boss.jp, 'big')),
+    u.boss ? h('button', { class: 'boss row', onclick: () => startUnitBoss(u) },
+      h('div', null, h('div', { class: 'eyebrow' }, 'Unit boss'), h('div', { style: { fontSize: '16px', fontWeight: '800' } }, u.boss.name),
+        h('div', { style: { fontSize: '12px', color: 'var(--boss-sub)', marginTop: '2px' } }, S.stamps[u.id] ? 'Stamp earned. Rematch any time.' : courseUnitDone(u) ? 'Ready when you are' : 'Take it early to skip ahead')),
+      art('tanuki', '', 'bossface')) : null,
+  ];
+}
+
+export function home(): HTMLElement {
+  const cur = currentUnit();
+  const u = COURSE.find((x) => x.id === viewing) ?? cur;
+  const due = dueCards().length;
+  return h('main', { class: 'screen' },
+    header(),
+    ...unitView(u),
+    h('div', { class: 'card row' },
+      h('div', null, h('h3', null, 'Review'), h('p', null, due ? `${due} card${due === 1 ? ' is' : 's are'} ready to review` : Object.keys(S.cards).length ? 'All caught up. Nice!' : 'Finish a stop to start reviewing')),
+      h('button', { class: 'btn mint sm', onclick: () => showTab('review') }, due ? 'Review' : 'Practice')),
+    h('div', { class: 'eyebrow', style: { marginTop: '4px' } }, 'All units'),
+    h('div', { class: 'units' }, COURSE.map((x) => {
+      const open = courseUnitUnlocked(x);
+      return h('button', { class: `ucard ${x === u ? 'on' : ''} ${open ? '' : 'lock'}`, disabled: !open, onclick: () => { viewing = x === cur ? null : x.id; showTab('home'); } },
+        h('span', { class: 'n' }, S.stamps[x.id] ? '✓' : String(x.n)), h('span', null, h('b', { class: 'jp' }, x.jp), h('small', null, x.title)));
+    }), h('div', { class: 'ucard lock' }, h('span', { class: 'n' }, '3'), h('span', null, h('b', null, 'More units'), h('small', null, 'On the way')))));
 }
