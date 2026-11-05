@@ -4,7 +4,7 @@ const INK = '#232A40', SKIN = '#FFF4EA', PAPER = '#FFFDF9', BLUSH = '#F2B8A8', S
 const P = (d: string, fill = 'none', sw = 2.4) => `<path d="${d}" fill="${fill}" stroke="${INK}" stroke-width="${sw}" stroke-linejoin="round" stroke-linecap="round"/>`;
 const C = (cx: number, cy: number, r: number, fill: string, sw = 2.4) => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${INK}" stroke-width="${sw}"/>`;
 const R = (x: number, y: number, w: number, h: number, fill: string, rx = 0, sw = 2.4) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${fill}" stroke="${INK}" stroke-width="${sw}"/>`;
-const T = (x: number, y: number, s: number, txt: string, fill = INK) => `<text x="${x}" y="${y}" text-anchor="middle" font-family="Shippori Mincho, serif" font-weight="800" font-size="${s}" fill="${fill}">${txt}</text>`;
+const T = (x: number, y: number, s: number, txt: string, fill = INK) => `<text x="${x}" y="${y}" text-anchor="middle" font-family="Lexend, Zen Maru Gothic, sans-serif" font-weight="800" font-size="${s}" fill="${fill}">${txt}</text>`;
 const BG = (fill: string, w = 140, h = 100) => `<rect x="2" y="2" width="${w - 4}" height="${h - 4}" rx="12" fill="${fill}"/>`;
 
 type Who = 'yuki' | 'leo' | 'mei' | 'gray' | 'doc' | 'suit';
