@@ -47,3 +47,40 @@ describe('climb data', () => {
     for (const u of COURSE) { expect(u.stamp).toBeTruthy(); expect(u.cando.length).toBeGreaterThan(0); }
   });
 });
+
+import { heardWord } from '../src/speech';
+import { grade as fsrs, newCard as nc, nextIv as niv, stageOf } from '../src/srs';
+describe('speech + fsrs', () => {
+  it('matches what the recognizer heard in kana, katakana or kanji', () => {
+    expect(heardWord(['せんせい'], ['せんせい', '先生'])).toBe(true);
+    expect(heardWord(['先生です。'], ['せんせい', '先生'])).toBe(true);
+    expect(heardWord(['スシ'], ['すし'])).toBe(true);
+    expect(heardWord(['がくせい'], ['せんせい', '先生'])).toBe(false);
+  });
+  it('grows intervals with good answers and moves from flip cards to typing to listening', () => {
+    let c = nc('x', 0); let t = 0;
+    const seen: string[] = [];
+    for (let i = 0; i < 6; i++) { seen.push(stageOf(c)); t = c.due; c = fsrs(c, 'good', t); }
+    expect(seen[0]).toBe('flash'); expect(seen).toContain('type'); expect(seen.at(-1)).toBe('ear');
+    expect(c.iv).toBeGreaterThan(30);
+    const before = c.iv; const lapsed = fsrs(c, 'again', c.due);
+    expect(lapsed.iv).toBe(0); expect(niv(lapsed, 'good', lapsed.due)).toBeLessThan(before);
+  });
+  it('converts old SM-2 cards', () => {
+    const old = { id: 'o', due: 10 * 86_400_000, iv: 10, ease: 2.5, reps: 3, lapses: 0 };
+    const g = fsrs(old, 'good', old.due);
+    expect(g.iv).toBeGreaterThan(10); expect(g.s).toBeGreaterThan(0);
+  });
+});
+
+import { logMistake, clearMistake, addXp } from '../src/state';
+describe('journal + calendar', () => {
+  it('counts mistakes, clears them, and logs XP per day', () => {
+    const s = fresh() as typeof S; s.mistakes = {}; s.dayXp = {}; s.xp = 0;
+    logMistake('h:さ', 'さ is sa', s, T0); logMistake('h:さ', '', s, T0 + 1);
+    expect(s.mistakes['h:さ']).toMatchObject({ n: 2, note: 'さ is sa' });
+    clearMistake('h:さ', s); expect(s.mistakes['h:さ']).toBeUndefined();
+    addXp(10, s, T0); addXp(5, s, T0 + 1000);
+    expect(s.xp).toBe(15); expect(s.dayXp[dayKey(T0)]).toBe(15);
+  });
+});

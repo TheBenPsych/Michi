@@ -1,5 +1,6 @@
 import { h, bar } from '../ui';
-import { S, save, resetAll, currentStreak, levelOf, levelStart, Theme } from '../state';
+import { S, save, resetAll, currentStreak, levelOf, levelStart, Theme, dayKey } from '../state';
+import { DAY, retrievability } from '../srs';
 import { learnedKana, mastery, currentUnit, learnedWords, stopDone, currentRegion, stampCount } from '../progress';
 import { openClimb } from './climb';
 import { UNITS, CHART_ROWS, KANA_BY_ID, chartChar } from '../data/kana';
@@ -39,6 +40,7 @@ export function meTab(): HTMLElement {
       h('div', { class: 'stat' }, h('div', { class: 'eyebrow' }, 'Best combo'), h('b', { class: 'mint' }, S.bestCombo)),
       h('div', { class: 'stat' }, h('div', { class: 'eyebrow' }, 'Mastered'), h('b', { class: 'gold' }, cards.filter((c) => c.iv >= 21).length)),
       h('div', { class: 'stat' }, h('div', { class: 'eyebrow' }, 'Bosses'), h('b', { class: 'mint' }, Object.values(S.bosses).filter(Boolean).length + Object.values(S.stamps).filter(Boolean).length))),
+    studyCalendar(), forecast(),
     h('section', null, h('div', { class: 'eyebrow', style: { marginBottom: '8px' } }, `Culture album · ${S.album.length} / ${CULTURE.length}`),
       h('div', { class: 'album' }, CULTURE.map((c) => S.album.includes(c.id)
         ? h('button', { class: 'acard', onclick: () => showCard(c.id) }, jp(rj(c.jp)), h('small', null, rj(c.title)))
@@ -102,4 +104,34 @@ async function sampler() {
     h('div', { class: 'small' }, 'For more voices: Settings > System > Languages > Text-to-speech > tap the gear next to Google > Install voice data > Japanese.'),
     h('button', { class: 'btn ghost', onclick: () => bg.remove() }, 'Close')));
   document.body.append(bg);
+}
+
+/** Last 12 weeks, one square per day, darker for more XP. */
+function studyCalendar() {
+  const now = new Date(); now.setHours(12, 0, 0, 0);
+  const end = now.getTime() + ((7 - ((now.getDay() + 6) % 7)) - 1) * DAY; // this Sunday
+  const days = Array.from({ length: 84 }, (_, i) => end - (83 - i) * DAY);
+  const xps = days.map((t) => S.dayXp[dayKey(t)] ?? 0);
+  const max = Math.max(1, ...xps);
+  const lvl = (x: number) => (x <= 0 ? 0 : x < max * 0.25 ? 1 : x < max * 0.6 ? 2 : 3);
+  const active = xps.filter((x) => x > 0).length;
+  return h('section', { class: 'card' },
+    h('div', { class: 'row' }, h('h3', null, 'Study calendar'), h('small', { class: 'small' }, `${active} day${active === 1 ? '' : 's'} in 12 weeks`)),
+    h('div', { class: 'heat', role: 'img', 'aria-label': `Study calendar: ${active} active days in the last 12 weeks` },
+      days.map((t, i) => h('span', { class: `l${lvl(xps[i])} ${t > Date.now() ? 'future' : ''}`, title: `${dayKey(t)}: ${xps[i]} XP` }))),
+    h('div', { class: 'heatkey small' }, 'Less ', [0, 1, 2, 3].map((l) => h('span', { class: `l${l}` })), ' More'));
+}
+
+/** Reviews coming due over the next 7 days, plus how much you are likely to remember. */
+function forecast() {
+  const cards = Object.values(S.cards), now = Date.now();
+  const start = new Date(); start.setHours(0, 0, 0, 0);
+  const counts = Array.from({ length: 7 }, (_, i) => cards.filter((c) => (i === 0 ? c.due < start.getTime() + DAY : c.due >= start.getTime() + i * DAY && c.due < start.getTime() + (i + 1) * DAY)).length);
+  const max = Math.max(1, ...counts);
+  const seen = cards.filter((c) => c.reps > 0);
+  const recall = seen.length ? Math.round((100 * seen.reduce((a, c) => a + retrievability(c, now), 0)) / seen.length) : null;
+  const names = ['Today', ...Array.from({ length: 6 }, (_, i) => new Date(start.getTime() + (i + 1) * DAY).toLocaleDateString('en', { weekday: 'short' }))];
+  return h('section', { class: 'card' },
+    h('div', { class: 'row' }, h('h3', null, 'Review forecast'), h('small', { class: 'small' }, recall == null ? 'Review a few cards to see your recall' : `You likely remember ${recall}% of your cards right now`)),
+    h('div', { class: 'fcast' }, counts.map((n, i) => h('div', { class: 'fcol' }, h('small', null, String(n)), h('span', { class: 'fbar' }, h('i', { style: { height: `${(n / max) * 100}%` } })), h('small', null, names[i])))));
 }
