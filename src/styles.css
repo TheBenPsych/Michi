@@ -20,8 +20,8 @@
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); }
-body { font-family: 'M PLUS Rounded 1c', system-ui, sans-serif; font-weight: 500; overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
-.jp, .kana { font-family: 'Shippori Mincho', serif; font-weight: 800; }
+body { font-family: 'Lexend', 'Zen Maru Gothic', system-ui, sans-serif; font-weight: 500; overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
+.jp, .kana { font-family: 'Lexend', 'Zen Maru Gothic', sans-serif; font-weight: 800; }
 button { font-family: inherit; font-weight: 800; color: inherit; cursor: pointer; touch-action: manipulation; }
 button:disabled { cursor: default; }
 input { font-family: inherit; user-select: text; -webkit-user-select: text; }
@@ -89,7 +89,7 @@ input { font-family: inherit; user-select: text; -webkit-user-select: text; }
 .bigkana.multi { font-size: 88px; }
 .opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .opt { min-height: 76px; border-radius: 20px; border: 3px solid var(--line2); background: var(--card); box-shadow: 0 4px 0 var(--line2); font-size: 22px; color: var(--ink); }
-.opt.kana { font-size: 40px; font-family: 'Shippori Mincho', serif; }
+.opt.kana { font-size: 40px; font-family: 'Lexend', 'Zen Maru Gothic', sans-serif; }
 .opt.sel { border-color: var(--pri); background: var(--tint); color: var(--pri-sh); box-shadow: 0 4px 0 var(--line); }
 .opt.ok { border-color: var(--mint); background: var(--mint-bg); color: var(--mint-ink); box-shadow: 0 4px 0 var(--mint-line); }
 .opt.no { border-color: var(--bad); background: var(--bad-bg); color: var(--bad-ink); box-shadow: 0 4px 0 var(--bad-line); }

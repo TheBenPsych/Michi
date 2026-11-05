@@ -38,4 +38,4 @@ npm run build && npx cap sync android   # then build android/ with Android Studi
 - `src/games.ts`: the mini-games, including stroke tracing
 - `scripts/fetch-strokes.mjs`: regenerates stroke data from KanjiVG
 
-Credits: stroke data from [KanjiVG](https://kanjivg.tagaini.net) by Ulrich Apel (CC BY-SA 3.0). Fonts M PLUS Rounded 1c and Shippori Mincho (SIL OFL).
+Credits: stroke data from [KanjiVG](https://kanjivg.tagaini.net) by Ulrich Apel (CC BY-SA 3.0). Fonts Lexend and Zen Maru Gothic (SIL OFL).
