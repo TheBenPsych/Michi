@@ -21,7 +21,7 @@ interface RunOpts { stopId?: string; label: string; items: Item[]; hearts?: bool
 /** A word in kana once all its kana are learned, otherwise in romaji. */
 const wtxt = (w: Word) => (readable(w.kana) ? w.kana : w.romaji);
 const romaji = (w: Word) => (S.settings.romaji && readable(w.kana) ? h('small', { class: 'rom' }, w.romaji) : null);
-const wordLabel = (w: Word) => h('span', { class: 'wl' }, jp(wtxt(w)), romaji(w));
+const wordLabel = (w: Word) => { const el = h('span', { class: 'wl' }, jp(wtxt(w)), romaji(w)); const n = (el.querySelector('.jp')?.textContent ?? '').length; if (n > 9) el.classList.add('xlong'); else if (n > 6) el.classList.add('long'); return el; };
 const speak = (w: Word) => say(w.kana.replace('〜', ''));
 const home = () => showTab('home');
 
@@ -59,7 +59,7 @@ function options(w: Word, pool: Word[], n = 4) { return shuffle([w, ...shuffle(p
 function choiceGrid(opts: Word[], right: Word, cell: (w: Word) => Element, done: Done, cls = 'opts pics', after?: () => void) {
   let answered = false;
   const btns = opts.map((o) => {
-    const b = h('button', { class: `opt pic`, onclick: () => {
+    const b = h('button', { class: cell === picCell ? 'opt pic' : 'opt', onclick: () => {
       if (answered) return; answered = true;
       const ok = o.id === right.id;
       b.classList.add(ok ? 'ok' : 'no', ok ? 'pop' : 'shake');
