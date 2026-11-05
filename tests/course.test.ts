@@ -5,6 +5,7 @@ import { hasArt } from '../src/art';
 import { S } from '../src/state';
 import { stopUnlocked, stopDone, nextStop, courseUnitUnlocked } from '../src/progress';
 import { rj, rjTokens, readable, ALL_KANA } from '../src/script';
+import { syllables } from '../src/screens/stops';
 
 describe('course content', () => {
   it('kana stops point at real kana lessons, and every kana lesson is on the path once', () => {
@@ -49,7 +50,7 @@ describe('course unlocking', () => {
   });
   it('the kana boss skips kana stops, and the unit boss unlocks the next unit', () => {
     S.bosses.hira = true;
-    expect(stopDone(u1[0])).toBe(true);
+    expect(stopDone(u1.find((s) => s.kind === 'kana')!)).toBe(true);
     expect(nextStop()).toBe(u1.find((s) => s.kind !== 'kana'));
     S.stamps.u1 = true;
     expect(courseUnitUnlocked(COURSE[1])).toBe(true);
@@ -72,7 +73,8 @@ describe('pacing: no kana before it is taught', () => {
   it('everything shown on a stop is in learned kana or romaji', () => {
     for (const { s, known: k } of steps) {
       const texts: string[] = [];
-      if (s.kind === 'story') s.story.panels.forEach((p) => p.lines.forEach((l) => texts.push(rjTokens(l.tokens.map((t) => (typeof t === 'string' ? t : t[0])), k).join(''))));
+      if (s.kind === 'speak') texts.push(...s.say.map((l) => rj(l.jp, k)));
+      if (s.kind === 'story' || s.kind === 'speak') s.story.panels.forEach((p) => p.lines.forEach((l) => texts.push(rjTokens(l.tokens.map((t) => (typeof t === 'string' ? t : t[0])), k).join(''))));
       if (s.kind === 'grammar') texts.push(...[s.g.title, ...s.g.pattern, ...s.g.points, ...s.g.examples.map((e) => e.jp)].map((t) => rj(t, k)));
       if (s.kind === 'mission') s.m.steps.forEach((st) => texts.push(...('npc' in st ? [st.npc] : st.choices.flatMap((c) => [c.jp, c.why ?? ''])).map((t) => rj(t, k))));
       if (s.kind === 'culture') texts.push(...[s.c.title, s.c.jp, s.c.text].map((t) => rj(t, k)));
@@ -87,5 +89,26 @@ describe('pacing: no kana before it is taught', () => {
     expect(rj('こんにちは！', none)).toBe('Konnichiwa!');
     expect(rjTokens(['レオ', 'さん', 'は', ' ', 'がくせい', 'です', 'か', '。'], none).join('')).toBe('Leo-san wa gakusei desu ka.');
     expect(rj('わたしは がくせいです。', new Set([...'わたしはがくせいで'].concat('す')))).toBe('わたしは がくせいです。');
+  });
+});
+
+describe('lesson plan shape', () => {
+  it('every Unit 1 chapter ends by talking, then a checkpoint', () => {
+    for (const p of COURSE[0].parts) {
+      expect(p.stops.at(-1)!.kind, p.title).toBe('checkpoint');
+      expect(['speak', 'mission']).toContain(p.stops.at(-2)!.kind);
+    }
+  });
+  it('lessons stay small: at most 6 new words each', () => {
+    for (const s of ALL_STOPS) if (s.kind === 'words') expect(s.words.length, s.id).toBeLessThanOrEqual(6);
+  });
+  it('words split into the syllables you hear', () => {
+    S.done = {}; S.bosses = {};
+    const w = (romaji: string) => ({ id: romaji, kana: 'ゑ', romaji, en: '', art: '' });
+    expect(syllables(w('konnichiwa'))).toEqual(['ko', 'n', 'ni', 'chi', 'wa']);
+    expect(syllables(w('tsukue'))).toEqual(['tsu', 'ku', 'e']);
+    expect(syllables(w('kaishain'))).toEqual(['ka', 'i', 'sha', 'i', 'n']);
+    expect(syllables(w('gakkou'))).toEqual(['ga', 'k', 'ko', 'u']);
+    expect(syllables(WORDS.get('chuugoku')!)).toEqual(['chu', 'u', 'go', 'ku']);
   });
 });

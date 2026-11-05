@@ -1,5 +1,6 @@
 // Screens for the course stops: words, grammar, story, mission, culture and the unit boss.
-import { Word, Stop, Story, Grammar, Mission, Culture, Drill, Token, CourseUnit, gloss, WORDS } from '../data/course';
+import { Word, Stop, Story, Grammar, Mission, Culture, Drill, CourseUnit, Part, gloss, WORDS, COURSE } from '../data/course';
+import { canListen, listenJa, heardWord } from '../speech';
 import { Region } from '../data/climb';
 import { LESSONS, Kana, KANA_BY_ID } from '../data/kana';
 import { h, jp, bar, pct, clear } from '../ui';
@@ -15,8 +16,10 @@ import { shuffle } from '../lessonGen';
 import { startLesson } from './lesson';
 
 type Done = (ok: boolean, note?: string) => void;
-interface Item { eyebrow: string; title: string; render: (done: Done) => HTMLElement; neutral?: boolean; retry?: () => Item; ref?: string; onRight?: () => void }
-interface RunOpts { stopId?: string; label: string; items: Item[]; hearts?: boolean; boss?: { name: string; again: () => void }; timer?: number; onWin?: () => string; medal?: string; back?: () => void }
+type Skill = 'Listening' | 'Reading' | 'Words' | 'Grammar' | 'Speaking';
+interface Item { eyebrow: string; title: string; render: (done: Done) => HTMLElement; neutral?: boolean; retry?: () => Item; ref?: string; onRight?: () => void; skill?: Skill }
+interface RunOpts { stopId?: string; label: string; items: Item[]; hearts?: boolean; boss?: { name: string; again: () => void }; timer?: number; onWin?: () => string; medal?: string; back?: () => void;
+  /** Tests: the score needed to pass (percent), and who hosts it. */ pass?: number; host?: string; title?: string }
 
 /** A word in kana once all its kana are learned, otherwise in romaji. */
 const wtxt = (w: Word) => (readable(w.kana) ? w.kana : w.romaji);
@@ -27,9 +30,11 @@ const home = () => showTab('home');
 
 export function startStop(s: Stop) {
   if (s.kind === 'kana') return startLesson(LESSONS.find((l) => l.id === s.id)!);
-  if (s.kind === 'words') return runQuiz({ stopId: s.id, label: s.title, items: wordItems(s.words), onWin: () => { addCards(s.words.map((w) => `w:${w.id}`)); return `${s.words.length} new words added to your review deck.`; } });
-  if (s.kind === 'grammar') return runQuiz({ stopId: s.id, label: s.title, items: grammarItems(s.g), onWin: () => `You can now use ${s.g.title}.` });
+  if (s.kind === 'words') return runQuiz({ stopId: s.id, label: s.title, items: wordItems(s.words), title: 'Lesson done!', onWin: () => { addCards(s.words.map((w) => `w:${w.id}`)); return `${s.words.length} new words added to your review deck.`; } });
+  if (s.kind === 'grammar') return runQuiz({ stopId: s.id, label: s.title, items: grammarItems(s.g), title: 'Lesson done!', onWin: () => `You can now use ${rj(s.g.title)}.` });
   if (s.kind === 'story') return storyScreen(s.id, s.story);
+  if (s.kind === 'speak') return storyScreen(s.id, s.story, s.title, s.say.map((l) => sayItem(l.jp, l.en)));
+  if (s.kind === 'checkpoint') return startCheckpoint(s);
   if (s.kind === 'mission') return missionScreen(s.id, s.m);
   return cultureScreen(s.id, s.c);
 }
@@ -42,9 +47,34 @@ function bossItems(units: CourseUnit[], nWords: number, nGrammar: number): Item[
   return shuffle([...wq, ...gq]);
 }
 
+/** Tanuki's unit test: like a Genki review test, in sections. Pass with 80%. */
 export function startUnitBoss(u: CourseUnit) {
-  runQuiz({ label: u.boss!.name, items: bossItems([u], 8, 6), hearts: true, boss: { name: u.boss!.name, again: () => startUnitBoss(u) }, timer: 15, medal: u.stamp,
-    onWin: () => { const first = !S.stamps[u.id]; S.stamps[u.id] = true; addCards(u.words.map((w) => `w:${w.id}`)); return first ? `The ${u.stamp} stamp is in your stamp book. Unit ${u.n + 1} is unlocked.` : 'Rematch won. Nice!'; } });
+  const items = testItems(u.parts, u.words, { listen: 5, read: 5, grammar: 6, speak: 3 });
+  runQuiz({ label: `Unit ${u.n} test`, items, hearts: true, pass: 80, host: u.boss!.name, medal: u.stamp, title: 'Unit test passed!',
+    onWin: () => { const first = !S.stamps[u.id]; S.stamps[u.id] = true; addCards(u.words.map((w) => `w:${w.id}`)); return first ? `The ${u.stamp} stamp is in your stamp book. Unit ${u.n + 1} is unlocked.` : 'Passed again. Nice!'; } });
+}
+
+const chapterOf = (s: Stop): [CourseUnit, Part] => { for (const u of COURSE) for (const p of u.parts) if (p.stops.includes(s)) return [u, p]; throw new Error(s.id); };
+/** A test in sections: listening, reading, grammar (or words), then speaking. New mixes of what the chapters taught. */
+function testItems(parts: Part[], pool: Word[], n: { listen: number; read: number; grammar: number; speak: number }): Item[] {
+  const stops = parts.flatMap((p) => p.stops);
+  const ws = [...new Map(stops.flatMap((s) => (s.kind === 'words' ? s.words : [])).map((w) => [w.id, w])).values()];
+  const opts = pool.length >= 4 ? pool : ws;
+  const tag = (skill: Skill) => (it: Item): Item => ({ ...it, skill, retry: undefined });
+  const listen = shuffle(ws).slice(0, n.listen).map((w) => tag('Listening')(listenPick(w, opts)));
+  const read = shuffle(ws).slice(0, n.read).map((w, i) => tag('Reading')((i % 2 ? pictureToWord : pickPicture)(w, opts)));
+  const drills = stops.flatMap((s) => (s.kind === 'grammar' ? s.g.drills : []));
+  const grammar = drills.length
+    ? shuffle(drills).slice(0, n.grammar).map((d) => tag('Grammar')(d.t === 'tiles' ? tilesItem(d) : d.t === 'fix' ? fixItem(d) : chooseItem(d)))
+    : shuffle(ws).slice(0, n.grammar).map((w, i) => tag('Words')((i % 2 ? tfWord : completeWord)(w, opts)));
+  const speak = speakingOff() ? [] : shuffle(ws).slice(0, n.speak).map((w) => tag('Speaking')(sayItem(w.kana, w.en, w, true)));
+  return [...listen, ...read, ...grammar, ...speak];
+}
+function startCheckpoint(s: Stop) {
+  const [u, p] = chapterOf(s);
+  const upto = u.parts.slice(0, u.parts.indexOf(p) + 1).flatMap((x) => x.stops).flatMap((x) => (x.kind === 'words' ? x.words : []));
+  runQuiz({ stopId: s.id, label: `${s.title} · ${p.title}`, items: testItems([p], upto, { listen: 3, read: 3, grammar: 3, speak: 2 }), hearts: true, pass: 80, title: 'Checkpoint passed!', medal: '合',
+    onWin: () => `Chapter "${p.title}" is complete.` });
 }
 
 /** The rank-up exam at the end of a region: everything in its units, harder and longer. */
@@ -80,8 +110,100 @@ const intro = (w: Word): Item => ({
     readable(w.kana) ? h('div', { class: 'read' }, w.romaji) : null,
     h('button', { class: 'soundbtn', onclick: () => speak(w) }, 'Hear it'),
     w.note ? h('div', { class: 'sub' }, rj(w.note)) : null,
-    h('button', { class: 'btn', onclick: () => done(true) }, 'Got it')); },
+    w.ex ? h('button', { class: 'example', onclick: () => say(w.ex!.jp) }, h('small', { class: 'exl' }, 'Example 🔊'), jp(rj(w.ex.jp)), h('small', null, w.ex.en)) : null,
+    h('button', { class: 'btn', onclick: () => done(true) }, 'Continue')); },
 });
+
+// ---------- Speaking: hear it, then say it out loud ----------
+let quietUntil = 0;
+/** "Can't speak now" turns speaking off for a while; those steps then skip themselves. */
+const speakingOff = () => Date.now() < quietUntil;
+function sayItem(text: string, en: string, w?: Word, graded = false): Item {
+  return { eyebrow: graded ? 'Speaking' : 'Say it', title: 'Say it out loud', neutral: !graded, ref: w ? `w:${w.id}` : undefined,
+    render: (done) => {
+      if (speakingOff() && !graded) { setTimeout(() => done(true), 0); return h('div'); }
+      const shown = w ? wtxt(w) : rj(text);
+      const play = (slow = false) => (w ? say(w.kana.replace('〜', ''), slow) : say(text, slow));
+      setTimeout(() => play(), 250);
+      const status = h('div', { class: 'small center', 'aria-live': 'polite' }, 'Listen, then tap the mic and say it.');
+      let tries = 0, answered = false;
+      const finish = (ok: boolean, note: string) => { if (answered) return; answered = true; mic.setAttribute('disabled', ''); extra.remove(); done(ok, note); };
+      const mic: HTMLButtonElement = h('button', { class: 'mic', 'aria-label': 'Tap and speak' }, '🎤');
+      const extra = h('div', { class: 'hrow' });
+      mic.addEventListener('click', async () => {
+        if (!(await canListen())) { status.textContent = 'This phone can\u2019t listen here. Say it aloud, then tap "I said it".'; return; }
+        mic.classList.add('on'); status.textContent = 'Listening…';
+        let heard: string[] = [];
+        try { heard = await listenJa(); } catch { status.textContent = 'The microphone is off. Say it aloud, then tap "I said it".'; mic.classList.remove('on'); return; }
+        mic.classList.remove('on');
+        const spellings = w ? [w.kana.replace('〜', ''), w.kanji?.replace('〜', '') ?? ''] : [text];
+        if (heardWord(heard, spellings)) return finish(true, `I heard "${heard[0]}". Nicely said!`);
+        tries++;
+        status.textContent = heard.length ? `I heard "${heard[0]}". Listen again and try once more.` : 'I didn\u2019t catch that. Try once more.';
+        if (tries >= 2) status.textContent += ' Or tap "I said it" if you know it was right.';
+      });
+      extra.append(
+        h('button', { class: 'linkbtn', onclick: () => finish(true, graded ? 'Counted. Keep practicing out loud.' : 'Great. Saying it out loud helps it stick.') }, 'I said it'),
+        h('button', { class: 'linkbtn', onclick: () => { quietUntil = Date.now() + 30 * 60_000; finish(true, 'Speaking is off for 30 minutes. You\u2019ll get listening instead.'); } }, 'Can\u2019t speak now'));
+      return h('div', { class: 'stage center' },
+        h('div', { class: 'prompt' }, jp(shown, w ? 'wordbig' : 'sent'), h('small', null, en)),
+        h('div', { class: 'hrow' }, h('button', { class: 'soundbtn sm', onclick: () => play() }, 'Hear it'), h('button', { class: 'soundbtn sm', onclick: () => play(true) }, '🐢 Slow')),
+        mic, status, extra);
+    } };
+}
+
+// ---------- Try it: build the word, true or false ----------
+const SYL = /(ch|sh|ts|[kgsztdnhbpmrwfjy])?y?[aiueo]|n(?![aiueoy])|([kstpgdc])(?=\2)/g;
+/** A word cut into the pieces you hear: kana (small ゃゅょ stay with the one before) or romaji syllables. */
+export const syllables = (w: Word): string[] => readable(w.kana) ? w.kana.replace('〜', '').match(/.[ゃゅょャュョ]?/g) ?? [] : (w.romaji.match(SYL) ?? [w.romaji]);
+function completeWord(w: Word, pool: Word[]): Item {
+  return { eyebrow: 'Complete the word', title: w.en, ref: `w:${w.id}`, retry: () => completeWord(w, pool),
+    render: (done) => {
+      const parts = syllables(w);
+      const gaps = parts.length <= 2 ? [parts.length - 1] : shuffle(parts.map((_, i) => i).slice(1)).slice(0, 2).sort((a, b) => a - b);
+      const others = shuffle([...new Set(pool.filter((x) => x.id !== w.id).flatMap(syllables))].filter((x) => !gaps.some((g) => parts[g] === x))).slice(0, 2);
+      const cells = parts.map((p, i) => h('span', { class: gaps.includes(i) ? 'gap' : '' }, gaps.includes(i) ? '＿' : p));
+      let k = 0, answered = false;
+      const chips = shuffle([...gaps.map((g) => parts[g]), ...others]).map((t) => {
+        const b: HTMLButtonElement = h('button', { class: 'wtile', lang: 'ja', onclick: () => {
+          if (answered || b.disabled) return; sfx('tap'); b.disabled = true;
+          const cell = cells[gaps[k]]; cell.textContent = t; cell.classList.add('filled'); k++;
+          if (k === gaps.length) {
+            answered = true; const ok = gaps.every((g) => cells[g].textContent === parts[g]);
+            gaps.forEach((g) => { cells[g].textContent = parts[g]; cells[g].classList.add(ok ? 'ok' : 'no'); });
+            speak(w); done(ok, `${wtxt(w)} · ${w.en}${w.note ? `. ${rj(w.note)}` : ''}`);
+          }
+        } }, t);
+        return b;
+      });
+      return h('div', { class: 'stage' }, h('div', { class: 'artcard sm' }, art(w.art, w.en)), h('div', { class: 'hrow' }, h('button', { class: 'soundbtn sm', onclick: () => speak(w) }, 'Hear it')),
+        h('div', { class: 'cword jp', lang: 'ja' }, cells), h('div', { class: 'tilebank' }, chips));
+    } };
+}
+function trueFalse(eyebrow: string, statement: Element | string, a: boolean, note: string, ref?: string, after?: () => void): Item {
+  return { eyebrow, title: 'True or false?', ref,
+    render: (done) => {
+      let answered = false;
+      const btns = [true, false].map((v) => h('button', { class: 'opt', onclick: (e: Event) => {
+        if (answered) return; answered = true; const ok = v === a;
+        (e.currentTarget as HTMLElement).classList.add(ok ? 'ok' : 'no', ok ? 'pop' : 'shake');
+        btns.forEach((b, i) => { if ([true, false][i] === a) b.classList.add('ok'); b.setAttribute('disabled', ''); });
+        after?.(); done(ok, note);
+      } }, v ? 'True' : 'False'));
+      return h('div', { class: 'stage' }, h('div', { class: 'prompt tf' }, statement), h('div', { class: 'opts tf' }, btns));
+    } };
+}
+function tfWord(w: Word, pool: Word[]): Item {
+  const other = shuffle(pool.filter((x) => x.id !== w.id && x.en !== w.en))[0];
+  const truth = !other || Math.random() < 0.5;
+  const it = trueFalse('True or false', h('span', null, '"', jp(wtxt(w)), `" means "${truth ? w.en : other.en}".`), truth,
+    `${wtxt(w)} means "${w.en}".${w.note ? ` ${rj(w.note)}` : ''}`, `w:${w.id}`, () => speak(w));
+  return { ...it, retry: () => tfWord(w, pool) };
+}
+/** The calm end of a lesson: what you learned, with sound. */
+const recapItem = (ws: Word[]): Item => ({ eyebrow: 'Recap', title: 'You can now say', neutral: true,
+  render: (done) => h('div', { class: 'stage' }, h('div', { class: 'recap' }, ws.map((w) => h('button', { class: 'rrow', onclick: () => speak(w) }, '🔊 ', jp(wtxt(w)), h('small', null, ` ${w.en}`)))),
+    h('button', { class: 'btn', onclick: () => done(true) }, 'Finish lesson')) });
 function pickPicture(w: Word, pool: Word[]): Item {
   return { eyebrow: 'Picture match', title: 'Which picture is this?', ref: `w:${w.id}`, retry: () => pickPicture(w, pool),
     render: (done) => h('div', { class: 'stage' }, h('div', { class: 'prompt' }, jp(wtxt(w), 'wordbig'), romaji(w), h('button', { class: 'soundbtn sm', onclick: () => speak(w) }, 'Hear it')), choiceGrid(options(w, pool), w, picCell, done)) };
@@ -134,11 +256,17 @@ function matchItem(ws: Word[]): Item {
       }));
     } };
 }
+/** A words lesson in 5 beats: warm up, hear it, say it, try it, use it, then a recap. */
 function wordItems(ws: Word[]): Item[] {
-  const teach = ws.flatMap((w) => [intro(w), pickPicture(w, ws)]);
-  const drills = shuffle(ws.flatMap((w, i) => [[listenPick, pictureToWord][i % 2](w, ws), ...(i % 3 === 0 ? [typeWord(w)] : [])]));
-  drills.splice(Math.floor(drills.length / 2), 0, matchItem(shuffle(ws).slice(0, 4)));
-  return [...teach, ...drills];
+  const old = learnedWordList().filter((x) => !ws.some((w) => w.id === x.id));
+  const pool = ws.length >= 4 ? ws : [...ws, ...shuffle(old.length >= 3 ? old : [...WORDS.values()].filter((x) => !ws.includes(x))).slice(0, 4 - ws.length)];
+  const warm = old.length >= 4 ? shuffle(old).slice(0, 2).map((w) => ({ ...listenPick(w, old), eyebrow: 'Warm up', retry: undefined })) : [];
+  const tries = [completeWord, tfWord, pickPicture];
+  const teach = ws.flatMap((w, i) => [intro(w), sayItem(w.kana, w.en, w), tries[i % 3](w, pool)]);
+  const use = shuffle(ws.map((w, i) => [listenPick, pictureToWord][i % 2](w, pool)));
+  if (ws.length >= 3) use.splice(1, 0, matchItem(shuffle(ws).slice(0, 4)));
+  if (ws.length >= 4) use.push(typeWord(ws[0]));
+  return [...warm, ...teach, ...use, recapItem(ws)];
 }
 
 // ---------- Grammar games ----------
@@ -215,13 +343,16 @@ function fixItem(d: Extract<Drill, { t: 'fix' }>): Item {
     } };
 }
 function grammarItems(g: Grammar): Item[] {
-  return [patternCard(g), ...g.drills.map((d) => (d.t === 'tiles' ? tilesItem(d) : d.t === 'fix' ? fixItem(d) : chooseItem(d)))];
+  const ds = g.drills.map((d) => (d.t === 'tiles' ? tilesItem(d) : d.t === 'fix' ? fixItem(d) : chooseItem(d)));
+  ds.splice(3, 0, sayItem(g.examples[1]?.jp ?? g.examples[0].jp, g.examples[1]?.en ?? g.examples[0].en));
+  return [patternCard(g), sayItem(g.examples[0].jp, g.examples[0].en), ...ds];
 }
 
 // ---------- Generic runner ----------
 function runQuiz(o: RunOpts) {
   const q = [...o.items];
   let i = 0, hearts = 3, combo = 0, best = 0, xp = 0, graded = 0, right = 0, timerId = 0;
+  const skills = new Map<Skill, [number, number]>();
   const hp = o.boss ? Math.max(1, q.length - 3) : 0; let bossHp = hp;
   // Calm mode: no hearts and no timer, even in boss fights.
   const calm = S.settings.calm, useHearts = !!o.hearts && !calm, timer = calm ? 0 : o.timer;
@@ -239,6 +370,7 @@ function runQuiz(o: RunOpts) {
       if (it.neutral) { if (note) foot.append(h('div', { class: 'fb ok' }, note)); else return next(); }
       else {
         graded++;
+        if (it.skill) { const t = skills.get(it.skill) ?? [0, 0]; skills.set(it.skill, [t[0] + (ok ? 1 : 0), t[1] + 1]); }
         if (ok) { it.onRight?.(); right++; combo++; best = Math.max(best, combo); const g = 10 + (combo >= 3 ? 5 : 0); xp += g; sfx(o.boss ? 'hit' : 'good');
           if (o.boss) { bossHp--; (boss?.querySelector('.bar > div') as HTMLElement | null)?.style.setProperty('width', `${(bossHp / hp) * 100}%`); boss?.classList.add('hit'); }
           foot.append(h('div', { class: 'fb ok' }, h('span', null, note ?? 'Nice!'), h('span', null, `${combo >= 2 && !calm ? `x${combo} · ` : ''}+${g} XP`)));
@@ -253,7 +385,7 @@ function runQuiz(o: RunOpts) {
       foot.append(b); b.scrollIntoView({ block: 'nearest' });
     };
     const el = it.render(onDone);
-    const eyebrow = o.boss ? `${o.boss.name.toUpperCase()} · ${i + 1} OF ${q.length}` : combo >= 2 && !calm ? `COMBO x${combo} · ${it.eyebrow}` : it.eyebrow;
+    const eyebrow = o.boss ? `${o.boss.name.toUpperCase()} · ${i + 1} OF ${q.length}` : it.skill ? `${it.skill.toUpperCase()} · ${i + 1} OF ${q.length}` : combo >= 2 && !calm ? `COMBO x${combo} · ${it.eyebrow}` : it.eyebrow;
     showFlow(h('div', { class: 'screen flow' },
       h('div', { class: 'ltop' }, h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: quit }, '✕'), boss ?? bar(i / q.length), heartsEl),
       tbar, h('div', { class: 'qhead' }, h('div', { class: 'eyebrow' }, eyebrow), h('div', { class: 'title' }, it.title)), el, foot), quit);
@@ -269,18 +401,29 @@ function runQuiz(o: RunOpts) {
     if (i >= q.length) return o.boss ? fail() : finish();
     render();
   };
-  const fail = () => {
+  const fail = (score?: number) => {
     sfx('bad');
-    showFlow(h('div', { class: 'screen flow' }, h('div', { class: 'center' }, o.boss ? art('tanuki', '', 'bossface big') : h('div', { class: 'medal bad' }, jp('休')),
-      h('div', { class: 'title' }, o.boss ? `${o.boss.name} wins this round` : 'Out of hearts'), h('div', { class: 'sub' }, 'No waiting: try again right away. Every mistake shows you what to practice.')),
+    const host = o.boss?.name ?? o.host;
+    showFlow(h('div', { class: 'screen flow' }, h('div', { class: 'center' }, host ? art('tanuki', '', 'bossface big') : h('div', { class: 'medal bad' }, jp('休')),
+      h('div', { class: 'title' }, score != null ? `${score}%: almost there` : o.boss ? `${o.boss.name} wins this round` : 'Out of hearts'),
+      h('div', { class: 'sub' }, score != null ? `You need ${o.pass}% to pass. No waiting: try again right away.` : 'No waiting: try again right away. Every mistake shows you what to practice.')),
+      skillBars(skills),
       h('div', { style: { flex: '1' } }), h('button', { class: 'btn', onclick: () => (o.boss ? o.boss.again() : runQuiz({ ...o, items: o.items })) }, 'Try again'), h('button', { class: 'btn ghost', onclick: home }, 'Back')), home);
   };
-  const finish = () => complete(o.stopId, xp, pct(right, graded), best, o.onWin?.() ?? '', o.boss ? `${o.boss.name} defeated!` : undefined, o.medal);
+  const finish = () => {
+    const acc = pct(right, graded);
+    if (o.pass && acc < o.pass) return fail(acc);
+    complete(o.stopId, xp, acc, best, o.onWin?.() ?? '', o.boss ? `${o.boss.name} defeated!` : o.title, o.medal, skills);
+  };
   render();
 }
 
 /** Records a finished stop and shows the reward screen. */
-export function complete(stopId: string | undefined, xp: number, acc: number, best: number, sub: string, title = 'Stop complete!', medal?: string) {
+/** Results by skill, for tests. */
+const skillBars = (skills?: Map<Skill, [number, number]>) => (skills?.size ? h('div', { class: 'skills' }, [...skills].map(([k, [r, n]]) =>
+  h('div', { class: 'skill' }, h('div', { class: 'row' }, h('b', null, k), h('small', null, `${r} of ${n}`)), bar(r / n, r / n < 0.8 ? 'warn' : '')))) : null);
+
+export function complete(stopId: string | undefined, xp: number, acc: number, best: number, sub: string, title = 'Lesson done!', medal?: string, skills?: Map<Skill, [number, number]>) {
   medal ??= acc === 100 ? '優' : '良';
   xp += 10;
   if (stopId) S.done[stopId] = Math.max(S.done[stopId] ?? 0, acc);
@@ -292,11 +435,12 @@ export function complete(stopId: string | undefined, xp: number, acc: number, be
       h('div', { class: 'stat' }, h('div', { class: 'eyebrow' }, 'XP'), h('b', null, `+${xp}`)),
       h('div', { class: 'stat' }, h('div', { class: 'eyebrow' }, 'Accuracy'), h('b', { class: 'mint' }, `${acc}%`)),
       h('div', { class: 'stat' }, h('div', { class: 'eyebrow' }, 'Streak'), h('b', { class: 'gold' }, `${streak} day${streak === 1 ? '' : 's'}`))),
+    skillBars(skills),
     h('div', { style: { flex: '1' } }), h('button', { class: 'btn', onclick: home }, 'Continue')), home);
 }
 
 // ---------- Story (manga page) ----------
-function storyScreen(id: string, st: Story) {
+function storyScreen(id: string, st: Story, label = `Story · ${st.title}`, extra: Item[] = []) {
   // English is on by default early on; Japanese takes over as the learner reads more kana.
   let shown = 1, showEn = true;
   const glossBar = h('div', { class: 'gloss', 'aria-live': 'polite' }, 'Tap a bubble to hear it. Tap a highlighted word to see its meaning.');
@@ -312,13 +456,13 @@ function storyScreen(id: string, st: Story) {
   };
   const nextBtn = h('button', { class: 'btn', onclick: () => {
     if (shown < st.panels.length) { shown++; draw(); const l = st.panels[shown - 1].lines[0]; say(lineText(l.tokens), false, voiceOf(l.who)); nextBtn.textContent = shown < st.panels.length ? 'Next panel' : 'Quick check'; }
-    else runQuiz({ stopId: id, label: st.title, items: st.quiz.map((qq) => chooseItem({ t: 'choose', prompt: qq.q, options: qq.options, a: qq.a })), onWin: () => `You read "${st.title}".` });
+    else runQuiz({ stopId: id, label: st.title, items: [...st.quiz.map((qq) => ({ ...chooseItem({ t: 'choose', prompt: qq.q, options: qq.options, a: qq.a }), eyebrow: 'About the dialogue' })), ...extra], title: 'Lesson done!', onWin: () => (extra.length ? 'You followed a real conversation and said it yourself.' : `You read "${st.title}".`) });
   } }, 'Next panel');
   const enBtn = h('button', { class: 'linkbtn', onclick: () => { showEn = !showEn; enBtn.textContent = showEn ? 'Hide English' : 'Show English'; draw(); } }, 'Hide English');
   draw();
   setTimeout(() => { const l = st.panels[0].lines[0]; say(lineText(l.tokens), false, voiceOf(l.who)); }, 300);
   showFlow(h('div', { class: 'screen flow' },
-    h('div', { class: 'ltop' }, h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: home }, '✕'), h('div', { class: 'eyebrow', style: { flex: '1' } }, `Story · ${st.title}`), enBtn),
+    h('div', { class: 'ltop' }, h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: home }, '✕'), h('div', { class: 'eyebrow', style: { flex: '1' } }, rj(label)), enBtn),
     page, glossBar, h('div', { style: { flex: '1' } }), nextBtn), home);
 }
 
@@ -366,7 +510,12 @@ function cultureScreen(id: string, c: Culture) {
     h('div', { class: 'ltop' }, h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: home }, '✕'), h('div', { class: 'eyebrow', style: { flex: '1' } }, had ? 'Culture card' : 'New culture card')),
     cultureCard(c),
     h('div', { style: { flex: '1' } }),
-    h('button', { class: 'btn', onclick: () => { if (!had) S.album.push(c.id); complete(id, 0, 100, 0, `${S.album.length} card${S.album.length === 1 ? '' : 's'} in your album.`, had ? 'Card reviewed' : 'Card collected!', '集'); } }, had ? 'Done' : 'Add to my album')), home);
+    h('button', { class: 'btn', onclick: () => {
+      if (!had) S.album.push(c.id);
+      const sub = `${S.album.length} card${S.album.length === 1 ? '' : 's'} in your album.`;
+      if (c.tf?.length) runQuiz({ stopId: id, label: rj(c.title), items: c.tf.map((t) => trueFalse('Culture check', rj(t.s), t.a, rj(t.note))), title: 'Lesson done!', medal: '集', onWin: () => sub });
+      else complete(id, 0, 100, 0, sub, had ? 'Card reviewed' : 'Card collected!', '集');
+    } }, c.tf?.length ? 'Quick check' : had ? 'Done' : 'Add to my album')), home);
 }
 export const cultureCard = (c: Culture) => h('div', { class: 'ccard' }, art(c.art, c.title), h('div', { class: 'cbody' }, h('div', { class: 'row' }, h('b', null, `${rj(c.title)} · `, jp(rj(c.jp))), h('small', null, 'Unit 1')), h('p', null, rj(c.text))));
 export const wordById = (id: string) => WORDS.get(id.replace(/^w:/, ''));
