@@ -1,31 +1,23 @@
+/* Michi Pop: bright colors on a warm off-white (light) or soft navy (dark). */
 :root {
-  --bg:#FAF7F2; --card:#FFFDF9; --ink:#232A40; --ink2:#4E5672; --ink3:#5A6485; --line:#CDD5EC; --line2:#D6DCEB;
-  --pri:#4A5FA8; --pri-sh:#2F3F78; --on-pri:#FAF7F2; --tint:#E6EAF5; --tint-ink:#34468A;
-  --mint:#1A9E85; --mint-sh:#0B6E5C; --mint-bg:#D9F5EF; --mint-ink:#0B6E5C; --mint-line:#9ED9CC;
-  --gold-bg:#FFF1C9; --gold-ink:#7A5600; --bad:#C0573E; --bad-bg:#F6E2DC; --bad-ink:#8A3A26; --bad-line:#E5B8AA;
-  --hard-bg:#F3EBD6; --hard-ink:#6E5410; --muted-bg:#E8EBF2; --muted-ink:#6E7692;
-  --boss-bg:#232A40; --boss-ink:#F3F1EC; --boss-sub:#CDD5EC; --boss-jp:#A8B6E0; --guide:#E3E7F1; --grid:#E2D9CB;
+  --bg:#FBFAF6; --card:#FFFEFB; --ink:#2E3440; --ink2:#5F6673; --ink3:#7A818C; --line:#E5E3DC; --line2:#ECEAE4;
+  --pri:#58CC02; --pri-sh:#46A302; --on-pri:#FFFEFB; --tint:#DDF4FF; --tint-ink:#1478B0;
+  --blue:#1CB0F6; --blue-sh:#1484C2; --orange:#FF9600; --orange-sh:#CC7800; --gold:#FFC800; --gold-sh:#D9A800; --purple:#CE82FF; --purple-sh:#A568CC;
+  --mint:#58CC02; --mint-sh:#46A302; --mint-bg:#D7FFB8; --mint-ink:#3E8F00; --mint-line:#A5ED6E;
+  --gold-bg:#FFF4D1; --gold-ink:#8F6200; --bad:#FF4B4B; --bad-bg:#FFE3E3; --bad-ink:#C42F2F; --bad-line:#FFB3B3;
+  --hard-bg:#FFF0D9; --hard-ink:#A65F00; --muted-bg:#ECEAE4; --muted-ink:#9AA0A8;
+  --boss-bg:#3F55C0; --boss-ink:#FFFEFB; --boss-sub:#D5DCFF; --boss-jp:#FFC800; --guide:#ECEAE4; --grid:#E5E3DC;
   --sat: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
   --sab: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
   color-scheme: light;
 }
 :root[data-theme="dark"], :root.dark {
-  --bg:#1F2433; --card:#2A3043; --ink:#E8EBF3; --ink2:#B4BBD3; --ink3:#B4BBD3; --line:#444C68; --line2:#394059;
-  --pri:#97AAEC; --pri-sh:#55669F; --on-pri:#1F2433; --tint:#343B54; --tint-ink:#C3CEF4;
-  --mint:#4CC6AF; --mint-sh:#2A8675; --mint-bg:#1E4747; --mint-ink:#7FE0CD; --mint-line:#2A8675;
-  --gold-bg:#4A4222; --gold-ink:#EDD888; --bad:#E8937D; --bad-bg:#4C2E28; --bad-ink:#F3AE9C; --bad-line:#83463A;
-  --hard-bg:#463D24; --hard-ink:#E8D08A; --muted-bg:#2F3549; --muted-ink:#98A0BC;
-  --boss-bg:#343B54; --boss-ink:#E8EBF3; --boss-sub:#B4BBD3; --boss-jp:#B2BFE8; --guide:#323950; --grid:#3E4662;
-  color-scheme: dark;
-}
-/* Midnight: the original, darkest theme. */
-:root.dark.midnight {
-  --bg:#11141F; --card:#1B2030; --ink:#E6E9F2; --ink2:#A9B1CC; --ink3:#A9B1CC; --line:#353D58; --line2:#2C3349;
-  --pri:#8FA3E8; --pri-sh:#4A5A9C; --on-pri:#11141F; --tint:#252B40; --tint-ink:#B9C6F2;
-  --mint:#3FBFA8; --mint-sh:#23806F; --mint-bg:#123A3A; --mint-ink:#6FDCC8; --mint-line:#23806F;
-  --gold-bg:#3A3410; --gold-ink:#E8D27A; --bad:#E58B74; --bad-bg:#3D231E; --bad-ink:#F0A592; --bad-line:#7A3A2C;
-  --hard-bg:#38301A; --hard-ink:#E3C978; --muted-bg:#1B2030; --muted-ink:#8A93B0;
-  --boss-bg:#252B40; --boss-ink:#E6E9F2; --boss-sub:#A9B1CC; --boss-jp:#A8B6E0; --guide:#262C40; --grid:#2E3550;
+  --bg:#131F24; --card:#202F36; --ink:#F1F7FB; --ink2:#B5C3CA; --ink3:#93A3AB; --line:#37464F; --line2:#2C3B42;
+  --pri:#58CC02; --pri-sh:#46A302; --on-pri:#FFFEFB; --tint:#1A3540; --tint-ink:#7FD3FA;
+  --mint:#58CC02; --mint-sh:#46A302; --mint-bg:#1F3A1A; --mint-ink:#89E219; --mint-line:#3E7A12;
+  --gold-bg:#3A3212; --gold-ink:#FFD84D; --bad:#FF4B4B; --bad-bg:#3D2023; --bad-ink:#FF8A8A; --bad-line:#7A2E2E;
+  --hard-bg:#3D3216; --hard-ink:#FFC24D; --muted-bg:#2C3B42; --muted-ink:#6F8590;
+  --boss-bg:#2B3C8F; --boss-ink:#F1F7FB; --boss-sub:#B9C4F5; --boss-jp:#FFC800; --guide:#22333A; --grid:#2C3B42;
   color-scheme: dark;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -368,3 +360,27 @@ svg.art { display: block; width: 100%; height: auto; }
 .fbar i { display: block; width: 100%; background: var(--pri); border-radius: 8px; min-height: 2px; }
 [hidden] { display: none !important; }
 .stage .play, .stage .artcard { flex: none; }
+
+/* ---- Michi Pop: chunky, pressable surfaces ---- */
+.card, .cando { border: 2px solid var(--line); box-shadow: 0 4px 0 var(--line); }
+.logo { color: var(--pri); }
+.btn.badb { box-shadow: 0 5px 0 #C42F2F; color: #FFFEFB; }
+.btn.sm { box-shadow: 0 4px 0 var(--pri-sh); }
+.btn.blue { background: var(--blue); box-shadow: 0 5px 0 var(--blue-sh); }
+.btn.orange { background: var(--orange); box-shadow: 0 5px 0 var(--orange-sh); }
+.icon-btn { box-shadow: 0 3px 0 var(--line2); }
+.pill { box-shadow: 0 3px 0 var(--line2); }
+.chip.st { background: #FFE9CC; color: #B35F00; } .chip.xp { background: var(--tint); color: var(--tint-ink); }
+:root.dark .chip.st { background: #3A2A12; color: #FFB347; }
+.tabs { padding-top: 6px; }
+.tabs button { margin: 0 6px 6px; border-radius: 16px; }
+.tabs button.on { background: color-mix(in srgb, var(--tc) 16%, transparent); color: var(--tc); box-shadow: inset 0 0 0 2px var(--tc); }
+.tabs button:nth-child(1) { --tc: #58CC02; } .tabs button:nth-child(2) { --tc: #FF9600; } .tabs button:nth-child(3) { --tc: #1CB0F6; } .tabs button:nth-child(4) { --tc: #CE82FF; }
+.tnode .dot { border: none; background: var(--muted-bg); color: var(--muted-ink); box-shadow: 0 5px 0 var(--line); width: 60px; height: 58px; }
+.tnode.done .dot { background: var(--gold); color: #FFFEFB; box-shadow: 0 5px 0 var(--gold-sh); }
+.tnode.now .dot { background: var(--pri); color: #FFFEFB; box-shadow: 0 5px 0 var(--pri-sh); outline: 4px solid var(--mint-line); outline-offset: 4px; }
+.tnode.sel { background: var(--tint); }
+.boss { box-shadow: 0 5px 0 #2B3C8F; }
+.gate.open { box-shadow: 0 4px 0 #C42F2F; }
+.gate .gjp { color: #FFFEFB; }
+.tile.on { color: #FFFEFB; }

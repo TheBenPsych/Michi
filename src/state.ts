@@ -2,7 +2,7 @@ import { Card, newCard, DAY } from './srs';
 
 /** One entry in the mistake journal. */
 export interface Mistake { n: number; last: number; note: string }
-export type Theme = 'auto' | 'light' | 'dark' | 'midnight';
+export type Theme = 'auto' | 'light' | 'dark';
 export interface State {
   v: 1;
   xp: number;
