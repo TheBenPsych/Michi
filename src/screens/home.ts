@@ -11,6 +11,7 @@ import { startBoss } from './lesson';
 import { startStop, startUnitBoss, startGate } from './stops';
 import { showTab } from '../nav';
 import { openClimb } from './climb';
+import { startMix } from './mix';
 
 export function header() {
   const st = currentStreak();
@@ -90,6 +91,10 @@ export function home(): HTMLElement {
         h('span', { class: 'rbar' }, bar(stampCount(r) / Math.max(1, r.plan.length), 'mint'))),
       h('span', { class: 'go2' }, 'Map')),
     weekCard(),
+    h('button', { class: `mixcard ${S.mixDay === dayKey() ? 'done' : ''}`, onclick: startMix },
+      h('span', { class: 'mjp jp' }, '混'),
+      h('span', { class: 't' }, h('b', null, S.mixDay === dayKey() ? 'Daily Mix done today' : 'Daily Mix · about 10 min'), h('small', null, 'Review, something new, then listening. +20 XP once a day.')),
+      h('span', { class: 'go2' }, S.mixDay === dayKey() ? 'Again' : 'Go')),
     h('div', { class: 'card row' },
       h('div', null, h('h3', null, 'Review'), h('p', null, due ? `${due} card${due === 1 ? ' is' : 's are'} ready to review` : Object.keys(S.cards).length ? 'All caught up. Nice!' : 'Finish a stop to start reviewing')),
       h('button', { class: 'btn mint sm', onclick: () => showTab('review') }, due ? 'Review' : 'Practice')),

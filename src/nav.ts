@@ -7,12 +7,17 @@ const tabs: Partial<Record<Tab, Render>> = {};
 let current: Tab = 'home';
 let backHandler: (() => void) | null = null;
 
+/** While set (by the Daily Mix), going back to a tab shows the mix's next step instead. */
+let interceptor: ((t: Tab) => boolean) | null = null;
+export const setInterceptor = (f: ((t: Tab) => boolean) | null) => { interceptor = f; };
+
 export const registerTab = (t: Tab, r: Render) => { tabs[t] = r; };
 const root = () => document.getElementById('app')!;
 
 const ICONS: [Tab, string, string][] = [['home', '道', 'Learn'], ['review', '復', 'Review'], ['chart', '表', 'Chart'], ['me', '私', 'Me']];
 
 export function showTab(t: Tab = current) {
+  if (interceptor && interceptor(t)) return;
   current = t; backHandler = null;
   const due = dueCards().length;
   const screen = tabs[t]!();

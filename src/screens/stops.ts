@@ -1,10 +1,10 @@
 // Screens for the course stops: words, grammar, story, mission, culture and the unit boss.
 import { Word, Stop, Story, Grammar, Mission, Culture, Drill, Token, CourseUnit, gloss, WORDS } from '../data/course';
 import { Region } from '../data/climb';
-import { LESSONS } from '../data/kana';
+import { LESSONS, Kana, KANA_BY_ID } from '../data/kana';
 import { h, jp, bar, pct, clear } from '../ui';
 import { art } from '../art';
-import { S, save, markActive, addCards } from '../state';
+import { S, save, addXp, logMistake, clearMistake, markActive, addCards } from '../state';
 import { say, sfx, voiceOf } from '../audio';
 import { lineText } from '../voiceLines';
 import { rj, rjTokens, readable, knownKana } from '../script';
@@ -15,7 +15,7 @@ import { shuffle } from '../lessonGen';
 import { startLesson } from './lesson';
 
 type Done = (ok: boolean, note?: string) => void;
-interface Item { eyebrow: string; title: string; render: (done: Done) => HTMLElement; neutral?: boolean; retry?: () => Item }
+interface Item { eyebrow: string; title: string; render: (done: Done) => HTMLElement; neutral?: boolean; retry?: () => Item; ref?: string; onRight?: () => void }
 interface RunOpts { stopId?: string; label: string; items: Item[]; hearts?: boolean; boss?: { name: string; again: () => void }; timer?: number; onWin?: () => string; medal?: string; back?: () => void }
 
 /** A word in kana once all its kana are learned, otherwise in romaji. */
@@ -83,19 +83,19 @@ const intro = (w: Word): Item => ({
     h('button', { class: 'btn', onclick: () => done(true) }, 'Got it')); },
 });
 function pickPicture(w: Word, pool: Word[]): Item {
-  return { eyebrow: 'Picture match', title: 'Which picture is this?', retry: () => pickPicture(w, pool),
+  return { eyebrow: 'Picture match', title: 'Which picture is this?', ref: `w:${w.id}`, retry: () => pickPicture(w, pool),
     render: (done) => h('div', { class: 'stage' }, h('div', { class: 'prompt' }, jp(wtxt(w), 'wordbig'), romaji(w), h('button', { class: 'soundbtn sm', onclick: () => speak(w) }, 'Hear it')), choiceGrid(options(w, pool), w, picCell, done)) };
 }
 function listenPick(w: Word, pool: Word[]): Item {
-  return { eyebrow: 'Listen and pick', title: 'Tap what you hear', retry: () => listenPick(w, pool),
+  return { eyebrow: 'Listen and pick', title: 'Tap what you hear', ref: `w:${w.id}`, retry: () => listenPick(w, pool),
     render: (done) => { setTimeout(() => speak(w), 300); return h('div', { class: 'stage' }, h('button', { class: 'play sm', 'aria-label': 'Play again', onclick: () => speak(w) }, '▶'), choiceGrid(options(w, pool), w, picCell, done)); } };
 }
 function pictureToWord(w: Word, pool: Word[]): Item {
-  return { eyebrow: 'Name it', title: 'What is this in Japanese?', retry: () => pictureToWord(w, pool),
+  return { eyebrow: 'Name it', title: 'What is this in Japanese?', ref: `w:${w.id}`, retry: () => pictureToWord(w, pool),
     render: (done) => h('div', { class: 'stage' }, h('div', { class: 'artcard sm' }, art(w.art, w.en)), choiceGrid(options(w, pool), w, wordLabel, done, 'opts words')) };
 }
 function typeWord(w: Word): Item {
-  return { eyebrow: 'Type it', title: `Type "${w.en}" in romaji`, retry: () => typeWord(w),
+  return { eyebrow: 'Type it', title: `Type "${w.en}" in romaji`, ref: `w:${w.id}`, retry: () => typeWord(w),
     render: (done) => {
       const input = h('input', { class: 'typein', type: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', 'aria-label': 'Type the word in English letters', placeholder: 'type in romaji' });
       const check = h('button', { class: 'btn', disabled: true }, 'Check');
@@ -239,11 +239,11 @@ function runQuiz(o: RunOpts) {
       if (it.neutral) { if (note) foot.append(h('div', { class: 'fb ok' }, note)); else return next(); }
       else {
         graded++;
-        if (ok) { right++; combo++; best = Math.max(best, combo); const g = 10 + (combo >= 3 ? 5 : 0); xp += g; sfx(o.boss ? 'hit' : 'good');
+        if (ok) { it.onRight?.(); right++; combo++; best = Math.max(best, combo); const g = 10 + (combo >= 3 ? 5 : 0); xp += g; sfx(o.boss ? 'hit' : 'good');
           if (o.boss) { bossHp--; (boss?.querySelector('.bar > div') as HTMLElement | null)?.style.setProperty('width', `${(bossHp / hp) * 100}%`); boss?.classList.add('hit'); }
           foot.append(h('div', { class: 'fb ok' }, h('span', null, note ?? 'Nice!'), h('span', null, `${combo >= 2 && !calm ? `x${combo} · ` : ''}+${g} XP`)));
         } else {
-          combo = 0; sfx('bad');
+          combo = 0; sfx('bad'); logMistake(it.ref ?? `n:${it.title}`, it.ref ? note ?? '' : `${it.title}: ${note ?? ''}`);
           if (useHearts) { hearts--; if (heartsEl) heartsEl.textContent = `♥ ${hearts}`; }
           if (it.retry && !o.boss) q.push(it.retry());
           foot.append(h('div', { class: 'fb no' }, h('span', null, note ?? 'Not quite'), useHearts ? h('span', null, `${hearts} ♥ left`) : h('span', null, 'Again later')));
@@ -284,7 +284,7 @@ export function complete(stopId: string | undefined, xp: number, acc: number, be
   medal ??= acc === 100 ? '優' : '良';
   xp += 10;
   if (stopId) S.done[stopId] = Math.max(S.done[stopId] ?? 0, acc);
-  S.xp += xp; S.bestCombo = Math.max(S.bestCombo, best);
+  addXp(xp); S.bestCombo = Math.max(S.bestCombo, best);
   const streak = markActive(); save(); sfx('win');
   showFlow(h('div', { class: 'screen flow' },
     h('div', { class: 'center' }, h('div', { class: 'medal pop' }, jp(medal)), h('div', { class: 'title', style: { marginTop: '14px' } }, title), sub ? h('div', { class: 'sub' }, sub) : null),
@@ -344,7 +344,7 @@ function missionScreen(id: string, m: Mission) {
       choicesEl.append(h('button', { class: 'opt jpopt', lang: 'ja', onclick: () => {
         if (c.ok) { sfx('good'); chat.append(h('div', { class: 'msg me' }, jp(rj(c.jp, k)))); say(c.jp, false, voiceOf('Ben')); step++; advance(); }
         else {
-          sfx('bad'); mistakes++;
+          sfx('bad'); mistakes++; logMistake(`m:${c.jp}`, `${rj(c.jp)}: ${rj(c.why ?? '')}`);
           chat.append(h('div', { class: 'msg me bad' }, jp(rj(c.jp, k), 'strike'), h('small', null, `Not quite · ${rj(c.why ?? '')}`)));
           syncTop();
           (choicesEl.querySelector(`[data-jp="${c.jp}"]`) as HTMLElement | null)?.setAttribute('disabled', '');
@@ -370,3 +370,49 @@ function cultureScreen(id: string, c: Culture) {
 }
 export const cultureCard = (c: Culture) => h('div', { class: 'ccard' }, art(c.art, c.title), h('div', { class: 'cbody' }, h('div', { class: 'row' }, h('b', null, `${rj(c.title)} · `, jp(rj(c.jp))), h('small', null, 'Unit 1')), h('p', null, rj(c.text))));
 export const wordById = (id: string) => WORDS.get(id.replace(/^w:/, ''));
+
+// ---------- Practice built from what you have learned (rematch, Daily Mix listening) ----------
+const learnedWordList = () => Object.keys(S.cards).filter((id) => id.startsWith('w:')).map(wordById).filter((w): w is Word => !!w);
+const learnedKanaList = () => Object.keys(S.cards).filter((id) => /^[hk]:/.test(id)).map((id) => KANA_BY_ID.get(id)).filter((k): k is Kana => !!k);
+
+/** Kana question: read it and pick the romaji, or hear it and pick the kana. */
+function kanaItem(k: Kana, pool: Kana[], mode: 'read' | 'listen'): Item {
+  const opts = shuffle([k, ...shuffle(pool.filter((x) => x.romaji !== k.romaji && x.sound !== k.sound)).slice(0, 3)]);
+  return { eyebrow: mode === 'read' ? 'Read it' : 'Listen', title: mode === 'read' ? 'How do you read this?' : 'Tap the kana you hear', ref: k.id, retry: () => kanaItem(k, pool, mode),
+    render: (done) => {
+      let answered = false;
+      if (mode === 'listen') setTimeout(() => say(k.sound), 300);
+      const btns = opts.map((o) => h('button', { class: `opt ${mode === 'listen' ? 'kana' : ''}`, onclick: () => {
+        if (answered) return; answered = true; const ok = o.id === k.id;
+        btns.forEach((b, i) => { if (opts[i].id === k.id) b.classList.add('ok'); b.setAttribute('disabled', ''); });
+        if (!ok) btns[opts.indexOf(o)].classList.add('no', 'shake');
+        say(k.sound); done(ok, `${k.char} is "${k.romaji}"`);
+      } }, mode === 'listen' ? jp(o.char) : o.romaji));
+      return h('div', { class: 'stage' }, mode === 'read' ? h('div', { class: 'center' }, jp(k.char, `bigkana ${k.char.length > 1 ? 'multi' : ''}`)) : h('button', { class: 'play sm', 'aria-label': 'Play again', onclick: () => say(k.sound) }, '▶'), h('div', { class: 'opts' }, btns));
+    } };
+}
+
+/** Rematch: re-ask the words and kana from the mistake journal. A right answer clears the entry. */
+export function startRematch(ids: string[], back = () => showTab('review')) {
+  const words = learnedWordList(), kana = learnedKanaList();
+  const wpool = words.length >= 4 ? words : [...words, ...COURSE_WORDS()];
+  const kpool = kana.length >= 4 ? kana : LESSONS.flatMap((l) => l.kana);
+  const items = shuffle(ids).slice(0, 12).flatMap((id, i): Item[] => {
+    const w = wordById(id), k = KANA_BY_ID.get(id);
+    const it = w ? [pictureToWord, listenPick, typeWord][i % 3](w, wpool) : k ? kanaItem(k, kpool, i % 2 ? 'listen' : 'read') : null;
+    if (!it) return [];
+    return [{ ...it, onRight: () => clearMistake(id) }];
+  });
+  if (!items.length) return back();
+  runQuiz({ label: 'Rematch', items, onWin: () => `${Object.keys(S.mistakes).length} left in your mistake journal.`, back });
+}
+
+/** Listening round for the Daily Mix: words and kana you know, by ear only. */
+export function startListening(back = () => showTab('home')): boolean {
+  const words = learnedWordList(), kana = learnedKanaList();
+  const items = [...shuffle(words).slice(0, words.length >= 4 ? 5 : 0).map((w) => listenPick(w, words)), ...shuffle(kana).slice(0, kana.length >= 4 ? 5 : 0).map((k) => kanaItem(k, kana, 'listen'))];
+  if (items.length < 3) return false;
+  runQuiz({ label: 'Listening', items: shuffle(items), onWin: () => 'Your ears are getting sharper.', back });
+  return true;
+}
+const COURSE_WORDS = () => [...WORDS.values()];

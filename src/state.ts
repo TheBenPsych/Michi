@@ -1,6 +1,8 @@
 import { Card, newCard, DAY } from './srs';
 
-export type Theme = 'auto' | 'light' | 'dark';
+/** One entry in the mistake journal. */
+export interface Mistake { n: number; last: number; note: string }
+export type Theme = 'auto' | 'light' | 'dark' | 'midnight';
 export interface State {
   v: 1;
   xp: number;
@@ -16,11 +18,14 @@ export interface State {
   days: string[];                    // YYYY-MM-DD days with activity (recent ones)
   charms: number;                    // omamori: each one saves the streak for one missed day
   charmUsed: string;                 // day a charm last saved the streak (to show a note once)
+  dayXp: Record<string, number>;     // XP earned per day (study calendar)
+  mistakes: Record<string, Mistake>; // mistake journal, by card id (k:.., w:..) or grammar note
+  mixDay: string;                    // last day the Daily Mix was finished
   settings: { theme: Theme; sfx: boolean; rate: number; romaji: boolean; voiceF: string; voiceM: string; calm: boolean };
 }
 
 const KEY = 'michi:v1';
-const fresh = (): State => ({ v: 1, xp: 0, streak: 0, lastDay: '', bestCombo: 0, done: {}, bosses: {}, cards: {}, stamps: {}, album: [], gates: {}, days: [], charms: 0, charmUsed: '', settings: { theme: 'auto', sfx: true, rate: 0.8, romaji: true, voiceF: '', voiceM: '', calm: false } });
+const fresh = (): State => ({ v: 1, xp: 0, streak: 0, lastDay: '', bestCombo: 0, done: {}, bosses: {}, cards: {}, stamps: {}, album: [], gates: {}, days: [], charms: 0, charmUsed: '', dayXp: {}, mistakes: {}, mixDay: '', settings: { theme: 'auto', sfx: true, rate: 0.8, romaji: true, voiceF: '', voiceM: '', calm: false } });
 
 function load(): State {
   try {
@@ -84,3 +89,20 @@ export function addCards(ids: string[], now = Date.now(), firstIvDays = 1, s = S
   for (const id of ids) if (!s.cards[id]) s.cards[id] = newCard(id, now, firstIvDays);
 }
 export const dueCards = (now = Date.now(), s = S) => Object.values(s.cards).filter((c) => c.due <= now).sort((a, b) => a.due - b.due);
+
+/** Add XP and log it on today's square of the study calendar. */
+export function addXp(n: number, s = S, now = Date.now()) {
+  s.xp += n; s.dayXp ??= {};
+  const k = dayKey(now); s.dayXp[k] = (s.dayXp[k] ?? 0) + n;
+}
+
+/** Remember a mistake for the journal. `id` is a card id when there is one. */
+export function logMistake(id: string, note: string, s = S, now = Date.now()) {
+  s.mistakes ??= {};
+  const m = s.mistakes[id] ?? { n: 0, last: 0, note };
+  s.mistakes[id] = { n: m.n + 1, last: now, note: note || m.note };
+  const keys = Object.keys(s.mistakes);
+  if (keys.length > 150) delete s.mistakes[keys.sort((a, b) => s.mistakes[a].last - s.mistakes[b].last)[0]];
+}
+/** A correct answer in a rematch clears the entry. */
+export const clearMistake = (id: string, s = S) => { delete s.mistakes?.[id]; };

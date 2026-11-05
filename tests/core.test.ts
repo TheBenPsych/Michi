@@ -45,11 +45,11 @@ describe('lessons', () => {
 });
 
 describe('srs + progress', () => {
-  it('schedules like the design (1m / 1d / 3d / 7d for a new card)', () => {
+  it('schedules a new card with FSRS (1m / 1d / 4d / 14d)', () => {
     const c = newCard('x', 0); c.reps = 0;
-    expect(['again', 'hard', 'good', 'easy'].map((g) => nextIv(c, g as never))).toEqual([0, 1, 3, 7]);
+    expect(['again', 'hard', 'good', 'easy'].map((g) => nextIv(c, g as never))).toEqual([0, 1, 4, 14]);
     const g = grade(c, 'good', 0);
-    expect(g.due).toBe(3 * DAY);
+    expect(g.due).toBe(4 * DAY);
     expect(nextIv(g, 'good')).toBeGreaterThan(3);
   });
   it('streak counts consecutive days and resets after a gap', () => {

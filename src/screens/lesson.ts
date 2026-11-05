@@ -2,7 +2,7 @@ import { Lesson, Unit, Kana, NOTES, UNITS } from '../data/kana';
 import { Q, buildLesson, buildBoss, retryQ, kanaOf } from '../lessonGen';
 import { renderGame, Result } from '../games';
 import { h, jp, bar, pct } from '../ui';
-import { S, save, markActive, addCards } from '../state';
+import { S, save, addXp, logMistake, markActive, addCards } from '../state';
 import { sfx } from '../audio';
 import { showFlow, showTab, Tab } from '../nav';
 import { knownBefore } from '../progress';
@@ -70,6 +70,7 @@ function run(r: Run) {
       } else {
         combo = 0; hearts--; sfx('bad');
         missed.set(k!.id, k!);
+        logMistake(k!.id, `${k!.char} is "${k!.romaji}"`);
         // Ask again later in a new form. In a boss fight this also means one more round.
         r.queue.push(retryQ(k!, r.pool));
         msg = `${k!.char} is "${k!.romaji}"`;
@@ -115,7 +116,7 @@ function run(r: Run) {
     } else { title = 'Practice complete!'; sub = 'Nice work keeping your kana sharp.'; }
     // Missed kana come back in review soon.
     for (const k of missed.values()) if (S.cards[k.id]) S.cards[k.id].due = Math.min(S.cards[k.id].due, now + 10 * 60_000);
-    S.xp += xp; S.bestCombo = Math.max(S.bestCombo, best);
+    addXp(xp); S.bestCombo = Math.max(S.bestCombo, best);
     const streak = markActive(); save(); sfx('win');
     const note = NOTES[Math.floor(Math.random() * NOTES.length)];
     const missBox = h('div', { class: 'miss', style: { display: 'none' } }, [...missed.values()].map((k) => h('span', null, jp(k.char), ` ${k.romaji}`)));
