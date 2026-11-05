@@ -1,4 +1,4 @@
-import { UNITS } from '../data/kana';
+import { UNITS, LESSONS } from '../data/kana';
 import { COURSE, CourseUnit, Stop } from '../data/course';
 import { REGIONS } from '../data/climb';
 import { h, jp, bar } from '../ui';
@@ -30,19 +30,24 @@ const icon = (s: Stop) => (s.kind === 'kana' ? [...s.title.replace('Kana: ', '')
 
 function stopRow(s: Stop, next: Stop | undefined) {
   const done = stopDone(s), open = stopUnlocked(s), cur = s === next;
-  const sub = done ? (s.id in S.done ? `Done · best ${S.done[s.id]}%` : 'Skipped with the kana boss') : cur ? `Up next · about ${s.kind === 'kana' ? 4 : 5} min` : open ? 'Ready' : 'Locked';
+  const sub = done ? (s.id in S.done ? `Done · best ${S.done[s.id]}%` : 'Skipped with the kana boss') : cur ? `Up next · about ${minutes(s)} min` : open ? 'Ready' : 'Locked';
   return h('button', { class: `stop ${done ? 'done' : ''} ${cur ? 'cur' : ''} ${open ? '' : 'lock'} k-${s.kind}`, disabled: !open, onclick: () => startStop(s) },
     h('span', { class: 'ic jp', 'aria-hidden': 'true' }, done ? '✓' : icon(s)),
     h('span', { class: 't' }, h('b', null, s.kind === 'kana' ? s.title : rj(s.title)), h('small', null, sub)),
     cur ? h('span', { class: 'go' }, 'Start') : null);
 }
 
+/** A rough time for a stop, from how much is in it. */
+const minutes = (s: Stop) => s.kind === 'kana' ? Math.max(3, Math.round((LESSONS.find((l) => l.id === s.id)?.kana.length ?? 5) * 0.7))
+  : s.kind === 'words' ? Math.max(3, s.words.length + 1) : s.kind === 'checkpoint' ? 6 : 5;
+
 /** The open unit under its trail node: what you'll be able to do, its parts and bosses. */
 function unitDetail(u: CourseUnit) {
   const next = nextStop();
   const stops = u.parts.flatMap((p) => p.stops);
   const doneN = stops.filter(stopDone).length;
-  const kanaBoss = UNITS.find((x) => x.id === u.kanaUnit)!;
+  // Skip tests for each script this unit teaches, if not beaten yet.
+  const kanaBosses = UNITS.filter((x) => stops.some((s) => s.kind === 'kana' && s.id.startsWith(x.id === 'hira' ? 'h-' : 'k-')) && !S.bosses[x.id]);
   return h('div', { class: 'udetail' },
     h('div', { class: 'cando' }, h('div', { class: 'eyebrow' }, S.stamps[u.id] ? 'You can now' : 'After this unit you can'),
       u.cando.map((c) => h('div', { class: S.stamps[u.id] ? 'ok' : '' }, `${S.stamps[u.id] ? '✓' : '○'} ${c}`)),
@@ -56,10 +61,11 @@ function unitDetail(u: CourseUnit) {
           h('b', null, `Chapter ${pi + 1} · ${p.title}`), h('span', null, `${pd} of ${p.stops.length}`)),
         isOpen ? h('div', { class: 'stops' }, p.stops.map((s) => stopRow(s, next))) : null);
     }),
-    S.bosses[kanaBoss.id] ? null : h('button', { class: 'boss row', onclick: () => startBoss(kanaBoss) },
-      h('div', null, h('div', { class: 'eyebrow' }, `Already know ${u.kanaUnit === 'hira' ? 'hiragana' : 'katakana'}?`),
-        h('div', { style: { fontSize: '15px', fontWeight: '800' } }, `Beat ${kanaBoss.boss.name} to skip the kana stops`)),
-      jp(kanaBoss.boss.jp, 'big')),
+    ...kanaBosses.map((kb) => h('button', { class: 'boss row', onclick: () => startBoss(kb) },
+      h('div', null, h('div', { class: 'eyebrow' }, `Already know ${kb.id === 'hira' ? 'hiragana' : 'katakana'}?`),
+        h('div', { style: { fontSize: '15px', fontWeight: '800' } }, `Beat ${kb.boss.name} to skip the kana stops`),
+        h('div', { style: { fontSize: '12px', color: 'var(--boss-sub)', marginTop: '2px' } }, '30 questions on every kana. You need 90% right.')),
+      jp(kb.boss.jp, 'big'))),
     u.boss ? h('button', { class: 'boss row', onclick: () => startUnitBoss(u) },
       h('div', null, h('div', { class: 'eyebrow' }, 'Unit test'), h('div', { style: { fontSize: '16px', fontWeight: '800' } }, `${u.boss.name}'s test`),
         h('div', { style: { fontSize: '12px', color: 'var(--boss-sub)', marginTop: '2px' } }, S.stamps[u.id] ? 'Stamp earned. Retake any time.' : courseUnitDone(u) ? `Pass with 80% to earn the ${u.stamp} stamp` : 'Take it early to skip ahead')),

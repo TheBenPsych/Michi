@@ -31,11 +31,40 @@ function plain(run: string): string {
 }
 
 // Names keep their English spelling; a few whole phrases need word breaks.
-const WHOLE: Record<string, string> = { レオ: 'Leo', メイ: 'Mei', ベン: 'Ben', ゆき: 'Yuki', やまだ: 'Yamada', わたしも: 'watashi mo', こんにちは: 'konnichiwa', こんばんは: 'konbanwa' };
+const WHOLE: Record<string, string> = { レオ: 'Leo', メイ: 'Mei', ベン: 'Ben', ゆき: 'Yuki', やまだ: 'Yamada', わたしも: 'watashi mo', こんにちは: 'konnichiwa', こんばんは: 'konbanwa',
+  おはようございます: 'ohayou gozaimasu', ありがとうございます: 'arigatou gozaimasu', よろしくおねがいします: 'yoroshiku onegaishimasu', でんわばんごう: 'denwa bangou', みちだいがく: 'Michi daigaku', ゼロきゅうゼロ: 'zero-kyuu-zero' };
+
+// ---- The learner's own name. Content writes ベン (Ben); the app swaps in the learner's name. ----
+const ROM: Record<string, string> = Object.fromEntries(Object.entries(BASE).filter(([k]) => !'ぁぃぅぇぉゔぢづを'.includes(k)).map(([k, v]) => [v, k]));
+Object.assign(ROM, { si: 'し', ti: 'ち', tu: 'つ', hu: 'ふ', wo: 'を', fa: 'ふぁ', fi: 'ふぃ', fe: 'ふぇ', fo: 'ふぉ', va: 'ゔぁ', vi: 'ゔぃ', vu: 'ゔ', ve: 'ゔぇ', vo: 'ゔぉ', di: 'でぃ', ti2: 'てぃ', je: 'じぇ', she: 'しぇ', che: 'ちぇ', la: 'ら', li: 'り', lu: 'る', le: 'れ', lo: 'ろ' });
+/** A best guess at a name in katakana, from how it sounds: "maiku" → マイク, "sara" → サラ, "ben" → ベン. */
+export function toKatakana(romaji: string): string {
+  const s = romaji.toLowerCase().replace(/[^a-z]/g, '');
+  let out = '';
+  for (let i = 0; i < s.length;) {
+    const c = s[i], n2 = s.slice(i, i + 2), n3 = s.slice(i, i + 3);
+    if (c === s[i + 1] && !'aeioun'.includes(c)) { out += 'っ'; i++; continue; }
+    if ('aeiou'.includes(c) && out && /[aeiou]$/.test(s.slice(0, i)) && s[i - 1] === c) { out += 'ー'; i++; continue; }
+    const y = /^([kgnhbpmr])y([auo])$/.exec(n3), sh = /^(sh|ch|j)([auo])$/.exec(n3.startsWith('j') ? n2 : n3);
+    if (y) { out += ROM[`${y[1]}i`] + { a: 'ゃ', u: 'ゅ', o: 'ょ' }[y[2]]; i += 3; continue; }
+    if (sh && !ROM[sh[0]]) { out += ROM[`${sh[1]}i`] + { a: 'ゃ', u: 'ゅ', o: 'ょ' }[sh[2]]; i += sh[0].length; continue; }
+    const hit = [n3, n2, c].find((x) => ROM[x] && (x !== 'n' || !'aeiouy'.includes(s[i + 1] ?? '')));
+    if (hit) { out += ROM[hit]; i += hit.length; continue; }
+    if (c === 'n') { out += 'ん'; i++; continue; }
+    out += ROM[`${c}${'td'.includes(c) ? 'o' : 'u'}`] ?? ''; i++; // a lone consonant gets a soft u (or o after t/d)
+  }
+  return [...out].map((ch) => (/[ぁ-ゖ]/.test(ch) ? String.fromCharCode(ch.charCodeAt(0) + 0x60) : ch)).join('');
+}
+const myKana = () => S.nameKana || 'ベン';
+const myName = () => S.name || 'Ben';
+/** Puts the learner's name into a line written for Ben. */
+export const withName = (text: string) => (S.nameKana && S.nameKana !== 'ベン' ? text.replace(/ベン/g, S.nameKana) : text);
 const SUFFIX: [string, string][] = [['ですか', ' desu ka'], ['です', ' desu'], ['は', ' wa'], ['を', ' o'], ['の', ' no']];
 
 /** Romaji for one run of kana, with particles split off: "わたしは" → "watashi wa". */
 export function romajiOf(run: string): string {
+  if (run === myKana()) return myName();
+  if (run === `${myKana()}さん`) return `${myName()}-san`;
   if (WHOLE[run]) return WHOLE[run];
   if (run === 'は') return 'wa';
   if (run === 'を') return 'o';
@@ -65,6 +94,9 @@ export function readable(text: string, known = knownKana()): boolean {
 /** The text as the learner should see it: each kana run stays kana if learned, otherwise becomes romaji. */
 const PUNCT: Record<string, string> = { '。': '. ', '、': ', ', '！': '! ', '？': '? ' };
 export function rj(text: string, known = knownKana(), cap = true): string {
+  text = withName(text);
+  // 「…」 marks kana you are being shown on purpose (in a note about that kana): kana + (romaji) until it is learned.
+  if (text.includes('「')) return text.replace(/「([^」]*)」|[^「]+/g, (m, lit: string | undefined) => (lit !== undefined ? (readable(lit, known) ? lit : `${lit} (${plain(lit)})`) : rj(m, known, cap)));
   let changed = false;
   // A Japanese sentence is shown all in kana or all in romaji, never half and half. English text with Japanese words mixed in is done word by word.
   const whole = !/[A-Za-z]/.test(text) && !readable(text, known);

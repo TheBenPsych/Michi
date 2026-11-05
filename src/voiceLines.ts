@@ -18,7 +18,7 @@ export function characterLines(): { kind: VoiceKind; text: string }[] {
   const out = new Map<string, { kind: VoiceKind; text: string }>();
   const add = (who: string, text: string) => { const kind = voiceOf(who); out.set(clipKey(kind, text), { kind, text }); };
   for (const u of COURSE) for (const p of u.parts) for (const s of p.stops) {
-    if (s.kind === 'story') s.story.panels.forEach((pn) => pn.lines.forEach((l) => add(l.who, lineText(l.tokens))));
+    if (s.kind === 'story' || s.kind === 'speak') s.story.panels.forEach((pn) => pn.lines.forEach((l) => add(l.who, lineText(l.tokens))));
     if (s.kind === 'mission') s.m.steps.forEach((st) => ('npc' in st ? add(s.m.npc, st.npc) : st.choices.filter((c) => c.ok).forEach((c) => add('Ben', c.jp))));
   }
   return [...out.values()];

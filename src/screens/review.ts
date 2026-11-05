@@ -148,8 +148,15 @@ export function session(cards: Card[]) {
 
     if (stage === 'type') {
       body = k
-        ? h('div', { class: 'stage' }, h('div', { class: 'center' }, jp(k.char, `bigkana ${k.char.length > 1 ? 'multi' : ''}`)), ...typeBox((v) => isAnswer(k, v), 'type the romaji'))
+        ? h('div', { class: 'stage' }, h('div', { class: 'center' }, jp(k.char, `bigkana ${k.char.length > 2 ? 'word' : k.char.length > 1 ? 'multi' : ''}`)), ...typeBox((v) => isAnswer(k, v), 'type the romaji'))
         : h('div', { class: 'stage' }, h('div', { class: 'artcard sm' }, art(w!.art, w!.en)), h('div', { class: 'center read' }, w!.en), ...typeBox((v) => wordOk(w!, v), 'type it in romaji'));
+    } else if (k && c.reps % 2 === 1) {
+      // The other direction: see the sound, pick the kana.
+      const opts = shuffle([k, ...shuffle(Object.keys(S.cards).map((id) => KANA_BY_ID.get(id)).filter((x): x is NonNullable<typeof x> => !!x && x.script === k.script && x.romaji !== k.romaji && x.sound !== k.sound)).slice(0, 3)]);
+      const btns = opts.map((o) => h('button', { class: 'opt kana', lang: 'ja', onclick: () => { btns.forEach((b, i) => { if (opts[i] === k) b.classList.add('ok'); b.setAttribute('disabled', ''); }); result(o === k); } }, o.char));
+      body = opts.length < 3
+        ? h('div', { class: 'stage' }, h('div', { class: 'center' }, jp(k.char, `bigkana ${k.char.length > 2 ? 'word' : k.char.length > 1 ? 'multi' : ''}`)), ...typeBox((v) => isAnswer(k, v), 'type the romaji'))
+        : h('div', { class: 'stage' }, h('div', { class: 'center bigkana', style: { fontSize: '64px', fontWeight: '800', color: 'var(--tint-ink)' } }, k.romaji), h('div', { class: 'small center' }, 'Which kana is this?'), h('div', { class: 'opts' }, btns));
     } else if (k) {
       setTimeout(() => say(sound), 300);
       body = h('div', { class: 'stage' }, h('button', { class: 'play sm', 'aria-label': 'Play again', onclick: () => say(sound) }, '▶'), h('div', { class: 'small center' }, 'Type the romaji for what you hear.'), ...typeBox((v) => isAnswer(k, v), 'what did you hear?'));

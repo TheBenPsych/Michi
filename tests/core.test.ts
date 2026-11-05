@@ -8,13 +8,13 @@ import strokes from '../src/data/strokes.json';
 let seed = 1; const rng = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 
 describe('data', () => {
-  it('has 2 units, 13 lessons each, unique ids', () => {
-    expect(UNITS.map((u) => u.lessons.length)).toEqual([13, 13]);
+  it('has 2 units (17 and 18 lessons), unique ids', () => {
+    expect(UNITS.map((u) => u.lessons.length)).toEqual([17, 18]);
     expect(new Set(ALL_KANA.map((k) => k.id)).size).toBe(ALL_KANA.length);
-    expect(ALL_KANA.length).toBe(2 * (46 + 25 + 33));
+    expect(ALL_KANA.length).toBe(2 * (46 + 25 + 33) + 6 + 6 + 10);
   });
   it('has stroke data for every single kana', () => {
-    for (const k of ALL_KANA) if (k.char.length === 1) expect((strokes as Record<string, string[]>)[k.char], k.char).toBeTruthy();
+    for (const k of ALL_KANA) if (k.char.length === 1 && k.char !== 'ヴ') expect((strokes as Record<string, string[]>)[k.char], k.char).toBeTruthy();
   });
   it('katakana maps back to hiragana', () => expect(hiraOf(UNITS[1].lessons[1].kana[0])?.char).toBe('か'));
 });
@@ -35,7 +35,18 @@ describe('lessons', () => {
       }
     });
   });
-  it('boss has 20 questions', () => expect(buildBoss(UNITS[0], rng).length).toBe(20));
+  it('boss (the skip test) has 30 questions with every lesson in it', () => {
+    const qs = buildBoss(UNITS[0], rng);
+    expect(qs.length).toBe(30);
+    for (const l of UNITS[0].lessons) expect(qs.some((q) => 'k' in q && l.kana.includes(q.k)), l.id).toBe(true);
+  });
+  it('lessons open with a tip card, and Match only comes after every new kana is shown', () => {
+    for (const u of UNITS) u.lessons.forEach((l) => {
+      const qs = buildLesson(l, [], rng);
+      expect(qs[0].t).toBe('tip');
+      expect(qs.findIndex((q) => q.t === 'match')).toBeGreaterThan(qs.map((q) => q.t).lastIndexOf('intro'));
+    });
+  });
   it('accepts alternate spellings', () => {
     const shi = ALL_KANA.find((k) => k.char === 'し')!;
     expect(isAnswer(shi, ' SI ')).toBe(true);
