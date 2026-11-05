@@ -7,7 +7,7 @@ import { CULTURE, ALL_STOPS } from '../data/course';
 import { jp } from '../ui';
 import { cultureCard } from './stops';
 import { rj } from '../script';
-import { say, hasVoice, japaneseVoices, voiceFor, voiceLabel, VoiceKind, speakWith, JaVoice } from '../audio';
+import { say, hasVoice, japaneseVoices, voiceFor, voiceLabel, voiceName, VoiceKind, speakWith, JaVoice } from '../audio';
 import { showTab } from '../nav';
 import { applyTheme } from '../theme';
 import { header } from './home';
@@ -44,13 +44,14 @@ export function meTab(): HTMLElement {
         ? h('button', { class: 'acard', onclick: () => showCard(c.id) }, jp(rj(c.jp)), h('small', null, rj(c.title)))
         : h('div', { class: 'acard empty' }, h('small', null, 'Locked'))))),
     h('section', { class: 'card' },
-      h('div', { class: 'setting' }, h('b', null, 'Theme'), seg<Theme>([['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']], S.settings.theme, (v) => { S.settings.theme = v; applyTheme(); })),
+      h('div', { class: 'setting', style: { flexWrap: 'wrap' } }, h('div', null, h('b', null, 'Theme'), h('div', { class: 'small' }, 'Auto follows your phone. Midnight is the darkest.')), seg<Theme>([['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark'], ['midnight', 'Midnight']], S.settings.theme, (v) => { S.settings.theme = v; applyTheme(); })),
       h('div', { class: 'setting' }, h('div', null, h('b', null, 'Calm mode'), h('div', { class: 'small' }, 'No timers, hearts, combos or sounds. Good for tired days.')), h('button', { class: `toggle ${S.settings.calm ? 'on' : ''}`, role: 'switch', 'aria-checked': String(S.settings.calm), 'aria-label': 'Calm mode', onclick: () => { S.settings.calm = !S.settings.calm; save(); showTab('me'); } })),
       h('div', { class: 'setting' }, h('div', null, h('b', null, 'Omamori charms'), h('div', { class: 'small' }, `You hold ${S.charms} of 2. Earn one for every 7 days in a row. A charm saves your streak if you miss one day.`)), jp('守'.repeat(Math.max(1, S.charms)), S.charms ? 'charmjp' : 'charmjp off')),
       h('div', { class: 'setting' }, h('b', null, 'Sound effects'), h('button', { class: `toggle ${S.settings.sfx ? 'on' : ''}`, role: 'switch', 'aria-checked': String(S.settings.sfx), 'aria-label': 'Sound effects', onclick: () => { S.settings.sfx = !S.settings.sfx; save(); showTab('me'); } })),
       h('div', { class: 'setting' }, h('b', null, 'Romaji help'), h('button', { class: `toggle ${S.settings.romaji ? 'on' : ''}`, role: 'switch', 'aria-checked': String(S.settings.romaji), 'aria-label': 'Show romaji under words', onclick: () => { S.settings.romaji = !S.settings.romaji; save(); showTab('me'); } })),
       h('div', { class: 'setting' }, h('b', null, 'Voice speed'), seg<number>([[0.6, 'Slow'], [0.8, 'Normal'], [1, 'Fast']], S.settings.rate, (v) => { S.settings.rate = v; })),
       voiceRow('f'), voiceRow('m'),
+      S.settings.voiceF || S.settings.voiceM ? h('div', { class: 'setting' }, h('div', null, h('b', null, 'Reset voices'), h('div', { class: 'small' }, 'Go back to the automatic voice picks')), h('button', { class: 'soundbtn', onclick: () => { S.settings.voiceF = ''; S.settings.voiceM = ''; save(); showTab('me'); } }, 'Reset')) : null,
       h('div', { class: 'setting' }, h('div', null, h('b', null, 'Voice sampler'), h('div', { class: 'small' }, 'Hear every Japanese voice on this phone')), h('button', { class: 'soundbtn', onclick: sampler }, 'Open')),
       h('div', { class: 'setting', style: { flexWrap: 'wrap' } }, h('b', null, 'Test voice'), h('div', { class: 'pills' }, ['か', 'し', 'つ', 'きゃ', 'ん'].map((k) => h('button', { class: 'soundbtn', lang: 'ja', onclick: () => say(k) }, k)), h('button', { class: 'soundbtn', onclick: () => say('こんにちは、みち です。') }, 'こんにちは')), voiceNote)),
     h('button', { class: 'btn ghost', onclick: () => { if (confirm('Erase all progress, XP and review cards? This cannot be undone.') && confirm('Are you sure?')) { resetAll(); applyTheme(); showTab('home'); } } }, 'Reset progress'),
@@ -69,11 +70,15 @@ function voiceRow(kind: VoiceKind) {
   const btn = h('button', { class: 'soundbtn' }, 'Auto');
   const sample = kind === 'm' ? 'こんにちは。レオです。' : 'こんにちは。ゆきです。';
   const key = kind === 'm' ? 'voiceM' : 'voiceF';
-  const label = async () => { const v = await voiceFor(kind); btn.textContent = `${S.settings[key] ? '' : 'Auto: '}${v ? voiceLabel(v.name) : kind === 'm' ? 'no male voice found' : 'phone default'}`; };
+  const label = async () => {
+    const vs = await japaneseVoices(), v = await voiceFor(kind), picked = vs.some((x) => x.id === S.settings[key]);
+    btn.textContent = `${picked ? '' : 'Auto: '}${v ? voiceName(v, vs) : kind === 'm' ? 'no male voice found' : 'phone default'}`;
+  };
+  // Each tap moves to the next voice; after the last one it goes back to Auto.
   btn.addEventListener('click', async () => {
     const vs = await japaneseVoices();
-    const names = ['', ...vs.map((v) => v.name)];
-    S.settings[key] = names[(names.indexOf(S.settings[key]) + 1) % names.length]; save();
+    const ids = ['', ...vs.map((v) => v.id)];
+    S.settings[key] = ids[(Math.max(0, ids.indexOf(S.settings[key])) + 1) % ids.length]; save();
     await label(); say(sample, false, kind);
   });
   label();
@@ -88,8 +93,8 @@ async function sampler() {
     h('div', null, h('b', null, `Voice ${n + 1}`), h('div', { class: 'small' }, voiceLabel(v.name))),
     h('div', { class: 'pills' },
       h('button', { class: 'soundbtn sm', onclick: () => speakWith('はじめまして。レオです。アメリカじんです。', S.settings.rate, v) }, 'Play'),
-      h('button', { class: `soundbtn sm ${S.settings.voiceM === v.name ? 'on' : ''}`, onclick: () => { S.settings.voiceM = v.name; save(); bg.remove(); showTab('me'); } }, 'Use for men'),
-      h('button', { class: `soundbtn sm ${S.settings.voiceF === v.name ? 'on' : ''}`, onclick: () => { S.settings.voiceF = v.name; save(); bg.remove(); showTab('me'); } }, 'Use for women')));
+      h('button', { class: `soundbtn sm ${S.settings.voiceM === v.id ? 'on' : ''}`, onclick: () => { S.settings.voiceM = v.id; save(); bg.remove(); showTab('me'); } }, 'Use for men'),
+      h('button', { class: `soundbtn sm ${S.settings.voiceF === v.id ? 'on' : ''}`, onclick: () => { S.settings.voiceF = v.id; save(); bg.remove(); showTab('me'); } }, 'Use for women')));
   bg.append(h('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Voice sampler' },
     h('div', { class: 'title' }, 'Voice sampler'),
     h('div', { class: 'small' }, vs.length ? `${vs.length} Japanese voice${vs.length === 1 ? '' : 's'} on this phone. Voices marked (online) need internet and usually sound the most natural.` : 'No Japanese voices found.'),

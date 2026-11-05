@@ -4,8 +4,9 @@ import { S } from './state';
 const mq = window.matchMedia('(prefers-color-scheme: dark)');
 export function applyTheme() {
   const t = S.settings.theme;
-  const dark = t === 'dark' || (t === 'auto' && mq.matches);
+  const dark = t === 'dark' || t === 'midnight' || (t === 'auto' && mq.matches);
   document.documentElement.classList.toggle('dark', dark);
+  document.documentElement.classList.toggle('midnight', t === 'midnight');
   if (Capacitor.isNativePlatform()) SystemBars.setStyle({ style: dark ? SystemBarsStyle.Dark : SystemBarsStyle.Light }).catch(() => {});
 }
 mq.addEventListener('change', applyTheme);

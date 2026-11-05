@@ -1,6 +1,6 @@
 import { Card, newCard, DAY } from './srs';
 
-export type Theme = 'auto' | 'light' | 'dark';
+export type Theme = 'auto' | 'light' | 'dark' | 'midnight';
 export interface State {
   v: 1;
   xp: number;

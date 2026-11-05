@@ -13,14 +13,16 @@ const native = Capacitor.isNativePlatform();
 /** Single kana are said as a tiny sentence ("か。") so the voice finishes the vowel instead of clipping it. */
 export const speakable = (text: string) => (/^[\u3041-\u30ff]{1,2}$/.test(text) ? `${text}。` : text);
 
-export interface JaVoice { i: number; name: string }
+/** id is unique per voice (several Android voices can share a name like "Japanese Japan"). */
+export interface JaVoice { i: number; name: string; id: string }
 let voiceCache: JaVoice[] | null = null;
 /** Japanese voices installed on the phone (index = position in the full list, as the TTS plugin wants). */
 export async function japaneseVoices(): Promise<JaVoice[]> {
   if (voiceCache) return voiceCache;
   try {
     const all = native ? (await TextToSpeech.getSupportedVoices()).voices : speechSynthesis.getVoices();
-    const ja = all.map((v, i) => ({ i, name: v.name || v.voiceURI, lang: (v.lang || '').toLowerCase().replace('_', '-') })).filter((v) => v.lang.startsWith('ja')).map(({ i, name }) => ({ i, name }));
+    const ja = all.map((v, i) => ({ i, name: v.name || v.voiceURI, uri: v.voiceURI || v.name, lang: (v.lang || '').toLowerCase().replace('_', '-') })).filter((v) => v.lang.startsWith('ja'))
+      .map(({ i, name, uri }, _, arr) => ({ i, name, id: arr.filter((x) => x.uri === uri).length > 1 ? `${uri}#${i}` : uri }));
     if (ja.length || native) voiceCache = ja;
     return ja;
   } catch { return []; }
@@ -32,8 +34,10 @@ export async function voiceFor(kind: VoiceKind): Promise<JaVoice | undefined> {
   const picked = kind === 'm' ? S.settings.voiceM : S.settings.voiceF;
   const match = vs.filter((v) => (kind === 'm' ? MALE : FEMALE).test(v.name) && !(kind === 'm' ? FEMALE : MALE).test(v.name));
   // Online (network) voices usually sound much more natural than the offline ones.
-  return vs.find((v) => v.name === picked) ?? match.find((v) => /network/i.test(v.name)) ?? match[0];
+  return vs.find((v) => v.id === picked) ?? match.find((v) => /network/i.test(v.name)) ?? match[0];
 }
+/** "Voice 2 · Japanese Japan": the number tells apart voices that share a name. */
+export const voiceName = (v: JaVoice, all: JaVoice[]) => `Voice ${all.indexOf(v) + 1} · ${voiceLabel(v.name)}`;
 export const voiceLabel = (name: string) => name.replace(/^ja-jp-x-/i, '').replace(/-(local|network)$/i, (m) => (m.includes('net') ? ' (online)' : ''));
 const clips = new Set<string>(CLIPS);
 let clipEl: HTMLAudioElement | null = null;

@@ -10,6 +10,16 @@
   color-scheme: light;
 }
 :root[data-theme="dark"], :root.dark {
+  --bg:#1F2433; --card:#2A3043; --ink:#E8EBF3; --ink2:#B4BBD3; --ink3:#B4BBD3; --line:#444C68; --line2:#394059;
+  --pri:#97AAEC; --pri-sh:#55669F; --on-pri:#1F2433; --tint:#343B54; --tint-ink:#C3CEF4;
+  --mint:#4CC6AF; --mint-sh:#2A8675; --mint-bg:#1E4747; --mint-ink:#7FE0CD; --mint-line:#2A8675;
+  --gold-bg:#4A4222; --gold-ink:#EDD888; --bad:#E8937D; --bad-bg:#4C2E28; --bad-ink:#F3AE9C; --bad-line:#83463A;
+  --hard-bg:#463D24; --hard-ink:#E8D08A; --muted-bg:#2F3549; --muted-ink:#98A0BC;
+  --boss-bg:#343B54; --boss-ink:#E8EBF3; --boss-sub:#B4BBD3; --boss-jp:#B2BFE8; --guide:#323950; --grid:#3E4662;
+  color-scheme: dark;
+}
+/* Midnight: the original, darkest theme. */
+:root.dark.midnight {
   --bg:#11141F; --card:#1B2030; --ink:#E6E9F2; --ink2:#A9B1CC; --ink3:#A9B1CC; --line:#353D58; --line2:#2C3349;
   --pri:#8FA3E8; --pri-sh:#4A5A9C; --on-pri:#11141F; --tint:#252B40; --tint-ink:#B9C6F2;
   --mint:#3FBFA8; --mint-sh:#23806F; --mint-bg:#123A3A; --mint-ink:#6FDCC8; --mint-line:#23806F;
@@ -321,3 +331,5 @@ svg.art { display: block; width: 100%; height: auto; }
 .charmjp { font-size: 24px; color: var(--bad); letter-spacing: 4px; } .charmjp.off { color: var(--line); }
 .charmmini { color: var(--bad); }
 .week h3 { white-space: nowrap; }
+/* stops wind left and right like the trail */
+.stops .stop { width: 90%; } .stops .stop:nth-child(4n+2) { margin-left: 5%; } .stops .stop:nth-child(4n+3) { margin-left: 10%; } .stops .stop:nth-child(4n+4) { margin-left: 5%; }
