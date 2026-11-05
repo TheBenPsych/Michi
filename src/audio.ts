@@ -90,6 +90,7 @@ function tone(freq: number, start: number, dur: number, type: OscillatorType = '
 }
 
 export function sfx(kind: 'good' | 'bad' | 'tap' | 'win' | 'hit') {
+  if (S.settings.calm) return; // Calm mode: no sounds or buzzes
   if (native) {
     if (kind === 'bad') Haptics.notification({ type: NotificationType.Error }).catch(() => {});
     else if (kind !== 'tap') Haptics.impact({ style: kind === 'hit' ? ImpactStyle.Medium : ImpactStyle.Light }).catch(() => {});

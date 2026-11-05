@@ -1,5 +1,6 @@
 // Screens for the course stops: words, grammar, story, mission, culture and the unit boss.
 import { Word, Stop, Story, Grammar, Mission, Culture, Drill, Token, CourseUnit, gloss, WORDS } from '../data/course';
+import { Region } from '../data/climb';
 import { LESSONS } from '../data/kana';
 import { h, jp, bar, pct, clear } from '../ui';
 import { art } from '../art';
@@ -15,7 +16,7 @@ import { startLesson } from './lesson';
 
 type Done = (ok: boolean, note?: string) => void;
 interface Item { eyebrow: string; title: string; render: (done: Done) => HTMLElement; neutral?: boolean; retry?: () => Item }
-interface RunOpts { stopId?: string; label: string; items: Item[]; hearts?: boolean; boss?: CourseUnit; timer?: number; onWin?: () => string; back?: () => void }
+interface RunOpts { stopId?: string; label: string; items: Item[]; hearts?: boolean; boss?: { name: string; again: () => void }; timer?: number; onWin?: () => string; medal?: string; back?: () => void }
 
 /** A word in kana once all its kana are learned, otherwise in romaji. */
 const wtxt = (w: Word) => (readable(w.kana) ? w.kana : w.romaji);
@@ -33,13 +34,24 @@ export function startStop(s: Stop) {
   return cultureScreen(s.id, s.c);
 }
 
+/** Mixed boss questions: pictures and listening for words, plus grammar choices. */
+function bossItems(units: CourseUnit[], nWords: number, nGrammar: number): Item[] {
+  const pool = units.flatMap((u) => u.words);
+  const wq = shuffle(pool).slice(0, nWords).map((w, i) => [pickPicture, pictureToWord, listenPick][i % 3](w, pool));
+  const gq = shuffle(units.flatMap((u) => u.parts.flatMap((p) => p.stops)).flatMap((s) => (s.kind === 'grammar' ? s.g.drills.filter((d) => d.t === 'choose') : [])) as Extract<Drill, { t: 'choose' }>[]).slice(0, nGrammar).map(chooseItem);
+  return shuffle([...wq, ...gq]);
+}
+
 export function startUnitBoss(u: CourseUnit) {
-  const words = shuffle(u.words).slice(0, 8);
-  const pool = u.words;
-  const wq = words.map((w, i) => [pickPicture, pictureToWord, listenPick][i % 3](w, pool));
-  const gq = shuffle(u.parts.flatMap((p) => p.stops).flatMap((s) => (s.kind === 'grammar' ? s.g.drills.filter((d) => d.t === 'choose') : [])) as Extract<Drill, { t: 'choose' }>[]).slice(0, 6).map(chooseItem);
-  runQuiz({ label: u.boss!.name, items: shuffle([...wq, ...gq]), hearts: true, boss: u, timer: 15,
-    onWin: () => { S.stamps[u.id] = true; addCards(u.words.map((w) => `w:${w.id}`)); return `You earned the Unit ${u.n} stamp. Unit ${u.n + 1} is unlocked.`; } });
+  runQuiz({ label: u.boss!.name, items: bossItems([u], 8, 6), hearts: true, boss: { name: u.boss!.name, again: () => startUnitBoss(u) }, timer: 15, medal: u.stamp,
+    onWin: () => { const first = !S.stamps[u.id]; S.stamps[u.id] = true; addCards(u.words.map((w) => `w:${w.id}`)); return first ? `The ${u.stamp} stamp is in your stamp book. Unit ${u.n + 1} is unlocked.` : 'Rematch won. Nice!'; } });
+}
+
+/** The rank-up exam at the end of a region: everything in its units, harder and longer. */
+export function startGate(r: Region, units: CourseUnit[]) {
+  const name = `${r.rank}'s Gate`;
+  runQuiz({ label: name, items: bossItems(units, 14, 8), hearts: true, boss: { name, again: () => startGate(r, units) }, timer: 12, medal: r.rankJp[0],
+    onWin: () => { S.gates[r.id] = true; return `You are now a ${r.rank} (${r.rankJp}). The next region of the mountain is open.`; } });
 }
 
 // ---------- Word games ----------
@@ -211,14 +223,16 @@ function runQuiz(o: RunOpts) {
   const q = [...o.items];
   let i = 0, hearts = 3, combo = 0, best = 0, xp = 0, graded = 0, right = 0, timerId = 0;
   const hp = o.boss ? Math.max(1, q.length - 3) : 0; let bossHp = hp;
+  // Calm mode: no hearts and no timer, even in boss fights.
+  const calm = S.settings.calm, useHearts = !!o.hearts && !calm, timer = calm ? 0 : o.timer;
   const quit = () => { clearInterval(timerId); if (i === 0 || confirm('Leave this stop? Progress in it will be lost.')) home(); else render(); };
   const render = () => {
     clearInterval(timerId);
     const it = q[i];
     const foot = h('div', { class: 'foot' });
-    const heartsEl = o.hearts ? h('div', { class: 'hearts', 'aria-label': `${hearts} hearts left` }, '♥ ', hearts) : null;
-    const boss = o.boss ? h('div', { class: 'oni' }, art('tanuki', o.boss.boss!.name, 'bossface'), bar(bossHp / hp, 'bad')) : null;
-    const tbar = o.timer && !it.neutral ? bar(1, 'mint timer') : null;
+    const heartsEl = useHearts ? h('div', { class: 'hearts', 'aria-label': `${hearts} hearts left` }, '♥ ', hearts) : null;
+    const boss = o.boss ? h('div', { class: 'oni' }, art('tanuki', o.boss.name, 'bossface'), bar(bossHp / hp, 'bad')) : null;
+    const tbar = timer && !it.neutral ? bar(1, 'mint timer') : null;
     let answered = false;
     const onDone: Done = (ok, note) => {
       if (answered) return; answered = true; clearInterval(timerId);
@@ -227,30 +241,30 @@ function runQuiz(o: RunOpts) {
         graded++;
         if (ok) { right++; combo++; best = Math.max(best, combo); const g = 10 + (combo >= 3 ? 5 : 0); xp += g; sfx(o.boss ? 'hit' : 'good');
           if (o.boss) { bossHp--; (boss?.querySelector('.bar > div') as HTMLElement | null)?.style.setProperty('width', `${(bossHp / hp) * 100}%`); boss?.classList.add('hit'); }
-          foot.append(h('div', { class: 'fb ok' }, h('span', null, note ?? 'Nice!'), h('span', null, `${combo >= 2 ? `x${combo} · ` : ''}+${g} XP`)));
+          foot.append(h('div', { class: 'fb ok' }, h('span', null, note ?? 'Nice!'), h('span', null, `${combo >= 2 && !calm ? `x${combo} · ` : ''}+${g} XP`)));
         } else {
           combo = 0; sfx('bad');
-          if (o.hearts) { hearts--; if (heartsEl) heartsEl.textContent = `♥ ${hearts}`; }
+          if (useHearts) { hearts--; if (heartsEl) heartsEl.textContent = `♥ ${hearts}`; }
           if (it.retry && !o.boss) q.push(it.retry());
-          foot.append(h('div', { class: 'fb no' }, h('span', null, note ?? 'Not quite'), o.hearts ? h('span', null, `${hearts} ♥ left`) : h('span', null, 'Again later')));
+          foot.append(h('div', { class: 'fb no' }, h('span', null, note ?? 'Not quite'), useHearts ? h('span', null, `${hearts} ♥ left`) : h('span', null, 'Again later')));
         }
       }
       const b = h('button', { class: `btn ${ok ? 'mint' : 'badb'}`, onclick: next }, 'Continue');
       foot.append(b); b.scrollIntoView({ block: 'nearest' });
     };
     const el = it.render(onDone);
-    const eyebrow = o.boss ? `${o.boss.boss!.name.toUpperCase()} · ${i + 1} OF ${q.length}` : combo >= 2 ? `COMBO x${combo} · ${it.eyebrow}` : it.eyebrow;
+    const eyebrow = o.boss ? `${o.boss.name.toUpperCase()} · ${i + 1} OF ${q.length}` : combo >= 2 && !calm ? `COMBO x${combo} · ${it.eyebrow}` : it.eyebrow;
     showFlow(h('div', { class: 'screen flow' },
       h('div', { class: 'ltop' }, h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: quit }, '✕'), boss ?? bar(i / q.length), heartsEl),
       tbar, h('div', { class: 'qhead' }, h('div', { class: 'eyebrow' }, eyebrow), h('div', { class: 'title' }, it.title)), el, foot), quit);
-    if (tbar && o.timer) {
-      const end = Date.now() + o.timer * 1000, fill = tbar.firstChild as HTMLElement;
-      timerId = window.setInterval(() => { const left = (end - Date.now()) / (o.timer! * 1000); fill.style.width = `${Math.max(0, left) * 100}%`; if (left <= 0) { el.querySelectorAll('button').forEach((b) => b.setAttribute('disabled', '')); onDone(false, 'Time is up!'); } }, 100);
+    if (tbar && timer) {
+      const end = Date.now() + timer * 1000, fill = tbar.firstChild as HTMLElement;
+      timerId = window.setInterval(() => { const left = (end - Date.now()) / (timer * 1000); fill.style.width = `${Math.max(0, left) * 100}%`; if (left <= 0) { el.querySelectorAll('button').forEach((b) => b.setAttribute('disabled', '')); onDone(false, 'Time is up!'); } }, 100);
     }
   };
   const next = () => {
     i++;
-    if (o.hearts && hearts <= 0) return fail();
+    if (useHearts && hearts <= 0) return fail();
     if (o.boss && bossHp <= 0) return finish();
     if (i >= q.length) return o.boss ? fail() : finish();
     render();
@@ -258,15 +272,16 @@ function runQuiz(o: RunOpts) {
   const fail = () => {
     sfx('bad');
     showFlow(h('div', { class: 'screen flow' }, h('div', { class: 'center' }, o.boss ? art('tanuki', '', 'bossface big') : h('div', { class: 'medal bad' }, jp('休')),
-      h('div', { class: 'title' }, o.boss ? `${o.boss.boss!.name} wins this round` : 'Out of hearts'), h('div', { class: 'sub' }, 'No waiting: try again right away. Every mistake shows you what to practice.')),
-      h('div', { style: { flex: '1' } }), h('button', { class: 'btn', onclick: () => (o.boss ? startUnitBoss(o.boss) : runQuiz({ ...o, items: o.items })) }, 'Try again'), h('button', { class: 'btn ghost', onclick: home }, 'Back')), home);
+      h('div', { class: 'title' }, o.boss ? `${o.boss.name} wins this round` : 'Out of hearts'), h('div', { class: 'sub' }, 'No waiting: try again right away. Every mistake shows you what to practice.')),
+      h('div', { style: { flex: '1' } }), h('button', { class: 'btn', onclick: () => (o.boss ? o.boss.again() : runQuiz({ ...o, items: o.items })) }, 'Try again'), h('button', { class: 'btn ghost', onclick: home }, 'Back')), home);
   };
-  const finish = () => complete(o.stopId, xp, pct(right, graded), best, o.onWin?.() ?? '', o.boss ? `${o.boss.boss!.name} defeated!` : undefined);
+  const finish = () => complete(o.stopId, xp, pct(right, graded), best, o.onWin?.() ?? '', o.boss ? `${o.boss.name} defeated!` : undefined, o.medal);
   render();
 }
 
 /** Records a finished stop and shows the reward screen. */
-export function complete(stopId: string | undefined, xp: number, acc: number, best: number, sub: string, title = 'Stop complete!', medal = acc === 100 ? '優' : '良') {
+export function complete(stopId: string | undefined, xp: number, acc: number, best: number, sub: string, title = 'Stop complete!', medal?: string) {
+  medal ??= acc === 100 ? '優' : '良';
   xp += 10;
   if (stopId) S.done[stopId] = Math.max(S.done[stopId] ?? 0, acc);
   S.xp += xp; S.bestCombo = Math.max(S.bestCombo, best);
@@ -307,16 +322,14 @@ function storyScreen(id: string, st: Story) {
     page, glossBar, h('div', { style: { flex: '1' } }), nextBtn), home);
 }
 
-// ---------- Mission (chat role play with hearts) ----------
+// ---------- Mission (chat role play; mistakes are explained, never punished) ----------
 function missionScreen(id: string, m: Mission) {
-  let step = 0, hearts = 3, mistakes = 0;
+  let step = 0, mistakes = 0;
   const goals = m.steps.filter((s) => 'goal' in s).map((s) => (s as { goal: string }).goal);
   const chat = h('div', { class: 'chat' });
   const goalEl = h('div', { class: 'goal' });
-  const heartsEl = h('div', { class: 'hearts' });
   const choicesEl = h('div', { class: 'opts col' });
   const syncTop = () => {
-    heartsEl.textContent = `♥ ${hearts}`; heartsEl.setAttribute('aria-label', `${hearts} hearts left`);
     const done = m.steps.slice(0, step).filter((s) => 'goal' in s).length;
     clear(goalEl).append(h('b', null, `Goal: ${m.goal}`), h('div', null, goals.map((g, i) => h('span', { class: i < done ? 'ok' : '' }, `${i < done ? '✓' : '○'} ${g}`))));
   };
@@ -324,18 +337,16 @@ function missionScreen(id: string, m: Mission) {
   const advance = () => {
     syncTop(); clear(choicesEl);
     const s = m.steps[step];
-    if (!s) return complete(id, 40 - mistakes * 10, pct(goals.length, goals.length + mistakes), 0, `${m.npc} is your new friend!`, 'Mission complete!', '友');
+    if (!s) return complete(id, Math.max(10, 40 - mistakes * 10), pct(goals.length, goals.length + mistakes), 0, `${m.npc} is your new friend!`, 'Mission complete!', '友');
     if ('npc' in s) { npc(s.npc, s.en); say(s.npc, false, voiceOf(m.npc)); step++; setTimeout(advance, 900); chat.lastElementChild?.scrollIntoView({ block: 'nearest' }); return; }
     const k = kset(s.choices.map((c) => c.jp));
     for (const c of shuffle(s.choices)) {
       choicesEl.append(h('button', { class: 'opt jpopt', lang: 'ja', onclick: () => {
         if (c.ok) { sfx('good'); chat.append(h('div', { class: 'msg me' }, jp(rj(c.jp, k)))); say(c.jp, false, voiceOf('Ben')); step++; advance(); }
         else {
-          sfx('bad'); hearts--; mistakes++;
-          chat.append(h('div', { class: 'msg me bad' }, jp(rj(c.jp, k), 'strike'), h('small', null, `−1 heart · ${rj(c.why ?? '')}`)));
+          sfx('bad'); mistakes++;
+          chat.append(h('div', { class: 'msg me bad' }, jp(rj(c.jp, k), 'strike'), h('small', null, `Not quite · ${rj(c.why ?? '')}`)));
           syncTop();
-          if (hearts <= 0) return setTimeout(() => showFlow(h('div', { class: 'screen flow' }, h('div', { class: 'center' }, h('div', { class: 'medal bad' }, jp('休')), h('div', { class: 'title' }, 'Out of hearts'), h('div', { class: 'sub' }, 'No waiting. Try the conversation again.')),
-            h('div', { style: { flex: '1' } }), h('button', { class: 'btn', onclick: () => missionScreen(id, m) }, 'Try again'), h('button', { class: 'btn ghost', onclick: home }, 'Back')), home), 700);
           (choicesEl.querySelector(`[data-jp="${c.jp}"]`) as HTMLElement | null)?.setAttribute('disabled', '');
         }
         chat.lastElementChild?.scrollIntoView({ block: 'nearest' });
@@ -343,7 +354,7 @@ function missionScreen(id: string, m: Mission) {
     }
   };
   showFlow(h('div', { class: 'screen flow' },
-    h('div', { class: 'ltop' }, h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: home }, '✕'), h('div', { class: 'eyebrow', style: { flex: '1' } }, `Mission · ${m.title}`), heartsEl),
+    h('div', { class: 'ltop' }, h('button', { class: 'icon-btn', 'aria-label': 'Close', onclick: home }, '✕'), h('div', { class: 'eyebrow', style: { flex: '1' } }, `Mission · ${m.title}`)),
     h('div', { class: 'scene' }, art(m.art, 'Mei at a welcome party')), goalEl, chat, choicesEl), home);
   advance();
 }

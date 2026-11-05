@@ -44,3 +44,13 @@ export function stopUnlocked(s: Stop): boolean {
 export const nextStop = (): Stop | undefined => ALL_STOPS.find((s) => stopUnlocked(s) && !stopDone(s));
 export const currentUnit = (): CourseUnit => { const s = nextStop(); return s ? unitOfStop(s) : COURSE[COURSE.length - 1]; };
 export const learnedWords = () => Object.keys(S.cards).filter((id) => id.startsWith('w:')).length;
+
+// ---- The climb (regions, ranks, stamps) ----
+import { REGIONS, Region } from './data/climb';
+/** Course units that belong to a region (only N5 is built so far). */
+export const unitsOf = (r: Region): CourseUnit[] => (r.id === 'n5' ? COURSE : []);
+/** The region you are climbing now: the first whose rank gate is not passed. */
+export const currentRegion = (): Region => REGIONS.find((r) => !S.gates[r.id]) ?? REGIONS[REGIONS.length - 1];
+/** The gate opens once every planned unit of the region has its stamp. */
+export const gateOpen = (r: Region) => r.plan.length > 0 && unitsOf(r).length >= r.plan.length && unitsOf(r).every((u) => S.stamps[u.id]);
+export const stampCount = (r: Region) => unitsOf(r).filter((u) => S.stamps[u.id]).length;
