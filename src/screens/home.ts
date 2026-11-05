@@ -25,12 +25,12 @@ export function header() {
 
 let viewing: string | null = null;
 const openParts = new Set<string>();
-const ICON: Record<Stop['kind'], string> = { kana: '', story: '話', words: '語', grammar: '文', mission: '任', culture: '化' };
+const ICON: Record<Stop['kind'], string> = { kana: '', story: '話', words: '語', grammar: '文', mission: '話', culture: '化', speak: '話', checkpoint: '合' };
 const icon = (s: Stop) => (s.kind === 'kana' ? [...s.title.replace('Kana: ', '')][0] : ICON[s.kind]);
 
 function stopRow(s: Stop, next: Stop | undefined) {
   const done = stopDone(s), open = stopUnlocked(s), cur = s === next;
-  const sub = done ? (s.id in S.done ? `Done · best ${S.done[s.id]}%` : 'Skipped with the kana boss') : cur ? 'Up next · about 3 min' : open ? 'Ready' : 'Locked';
+  const sub = done ? (s.id in S.done ? `Done · best ${S.done[s.id]}%` : 'Skipped with the kana boss') : cur ? `Up next · about ${s.kind === 'kana' ? 4 : 5} min` : open ? 'Ready' : 'Locked';
   return h('button', { class: `stop ${done ? 'done' : ''} ${cur ? 'cur' : ''} ${open ? '' : 'lock'} k-${s.kind}`, disabled: !open, onclick: () => startStop(s) },
     h('span', { class: 'ic jp', 'aria-hidden': 'true' }, done ? '✓' : icon(s)),
     h('span', { class: 't' }, h('b', null, s.kind === 'kana' ? s.title : rj(s.title)), h('small', null, sub)),
@@ -53,7 +53,7 @@ function unitDetail(u: CourseUnit) {
       const isOpen = openParts.has(key) || p.stops.includes(next!) || (u.parts.length === 1);
       return h('section', { class: `part ${isOpen ? 'open' : ''}` },
         h('button', { class: 'phead', 'aria-expanded': String(isOpen), onclick: () => { if (openParts.has(key)) openParts.delete(key); else openParts.add(key); showTab('home'); } },
-          h('b', null, `Part ${pi + 1} · ${p.title}`), h('span', null, `${pd} of ${p.stops.length}`)),
+          h('b', null, `Chapter ${pi + 1} · ${p.title}`), h('span', null, `${pd} of ${p.stops.length}`)),
         isOpen ? h('div', { class: 'stops' }, p.stops.map((s) => stopRow(s, next))) : null);
     }),
     S.bosses[kanaBoss.id] ? null : h('button', { class: 'boss row', onclick: () => startBoss(kanaBoss) },
@@ -61,8 +61,8 @@ function unitDetail(u: CourseUnit) {
         h('div', { style: { fontSize: '15px', fontWeight: '800' } }, `Beat ${kanaBoss.boss.name} to skip the kana stops`)),
       jp(kanaBoss.boss.jp, 'big')),
     u.boss ? h('button', { class: 'boss row', onclick: () => startUnitBoss(u) },
-      h('div', null, h('div', { class: 'eyebrow' }, 'Unit boss'), h('div', { style: { fontSize: '16px', fontWeight: '800' } }, u.boss.name),
-        h('div', { style: { fontSize: '12px', color: 'var(--boss-sub)', marginTop: '2px' } }, S.stamps[u.id] ? 'Stamp earned. Rematch any time.' : courseUnitDone(u) ? `Win to earn the ${u.stamp} stamp` : 'Take it early to skip ahead')),
+      h('div', null, h('div', { class: 'eyebrow' }, 'Unit test'), h('div', { style: { fontSize: '16px', fontWeight: '800' } }, `${u.boss.name}'s test`),
+        h('div', { style: { fontSize: '12px', color: 'var(--boss-sub)', marginTop: '2px' } }, S.stamps[u.id] ? 'Stamp earned. Retake any time.' : courseUnitDone(u) ? `Pass with 80% to earn the ${u.stamp} stamp` : 'Take it early to skip ahead')),
       art('tanuki', '', 'bossface')) : null);
 }
 

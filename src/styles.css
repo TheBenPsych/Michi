@@ -395,3 +395,25 @@ svg.art { display: block; width: 100%; height: auto; }
 .tabs button.on { color: var(--tc); }
 .cell, .dots span { color: var(--ink3); }
 .mixcard small { opacity: 1; }
+
+/* ---- Lesson redesign: speaking, complete the word, true or false, recap, test results ---- */
+.hrow { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; }
+.mic { width: 84px; height: 84px; border-radius: 50%; border: none; background: var(--blue); color: #fff; font-size: 34px; box-shadow: 0 5px 0 var(--blue-sh); margin: 6px auto; }
+.mic.on { animation: micpulse 1s ease-in-out infinite; }
+.mic:disabled { opacity: .5; }
+@keyframes micpulse { 50% { transform: scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .mic.on { animation: none; outline: 4px solid var(--tint); } }
+.cword { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; font-size: 30px; font-weight: 700; margin: 8px 0; }
+.cword .gap { min-width: 1.6em; text-align: center; border-bottom: 3px solid var(--blue); color: var(--tint-ink); }
+.cword .gap.ok { color: var(--mint-ink); border-color: var(--mint); } .cword .gap.no { color: var(--bad-ink); border-color: var(--bad); }
+.prompt.tf { font-size: 19px; line-height: 1.5; padding: 18px; }
+.opts.tf .opt { min-height: 58px; font-size: 17px; font-weight: 700; }
+.example .exl { color: var(--tint-ink); font-weight: 700; }
+.recap { display: flex; flex-direction: column; gap: 8px; }
+.rrow { display: flex; align-items: baseline; gap: 8px; text-align: left; background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 10px 12px; color: var(--ink); font-size: 15px; }
+.rrow .jp { font-size: 19px; }
+.skills { display: flex; flex-direction: column; gap: 10px; background: var(--card); border: 2px solid var(--line); border-radius: 16px; padding: 12px 14px; margin-top: 12px; }
+.skill .row { margin-bottom: 4px; } .skill small { color: var(--ink2); }
+.bar.warn > div { background: var(--orange); }
+.stop.k-checkpoint .ic { background: var(--gold-bg); color: var(--gold-ink); }
+.stop.k-speak .ic, .stop.k-mission .ic { background: var(--mint-bg); color: var(--mint-ink); }
