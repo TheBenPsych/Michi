@@ -4,6 +4,7 @@ import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { S } from './state';
 import { VoiceKind, clipKey } from './voiceLines';
 import CLIPS from './data/voiceClips.json';
+import { withName } from './script';
 export { voiceOf } from './voiceLines';
 export type { VoiceKind } from './voiceLines';
 
@@ -54,6 +55,7 @@ function playClip(text: string, kind: VoiceKind, slow: boolean): boolean {
 }
 
 export async function say(raw: string, slow = false, kind: VoiceKind = 'f') {
+  raw = withName(raw);
   if (playClip(raw, kind, slow)) return;
   const text = speakable(raw);
   // Lone kana get a slightly slower rate so the vowel is held a moment longer.

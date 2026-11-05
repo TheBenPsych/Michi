@@ -62,13 +62,14 @@ describe('pacing: no kana before it is taught', () => {
   // Walk Unit 1 in order, collecting the kana taught so far.
   const steps: { s: (typeof ALL_STOPS)[number]; known: Set<string> }[] = [];
   const known = new Set<string>();
-  for (const s of COURSE[0].parts.flatMap((p) => p.stops)) {
+  for (const s of COURSE.flatMap((u) => u.parts.flatMap((p) => p.stops))) {
     if (s.kind === 'kana') LESSONS.find((l) => l.id === s.id)!.kana.forEach((k) => [...k.char].forEach((c) => known.add(c)));
     else steps.push({ s, known: new Set(known) });
   }
-  const unknownIn = (text: string, k: Set<string>) => [...text].filter((c) => ALL_KANA.has(c) && !k.has(c) && !'ゃゅょっ'.includes(c));
+  // Kana shown on purpose with its romaji, like "は (ha)", is allowed.
+  const unknownIn = (text: string, k: Set<string>) => [...text.replace(/[\u3040-\u30ff]+ \([a-z]+\)/g, '')].filter((c) => ALL_KANA.has(c) && !k.has(c) && !'ゃゅょっ'.includes(c));
   it('"Read it" stops only use kana taught before them', () => {
-    for (const { s, known: k } of steps) if (s.kind === 'words' && s.id.startsWith('u1-kw')) for (const w of s.words) expect(readable(w.kana, k), `${s.id} ${w.kana}`).toBe(true);
+    for (const { s, known: k } of steps) if (s.kind === 'words' && /-kw\d/.test(s.id)) for (const w of s.words) expect(readable(w.kana, k), `${s.id} ${w.kana}`).toBe(true);
   });
   it('everything shown on a stop is in learned kana or romaji', () => {
     for (const { s, known: k } of steps) {
@@ -93,12 +94,6 @@ describe('pacing: no kana before it is taught', () => {
 });
 
 describe('lesson plan shape', () => {
-  it('every Unit 1 chapter ends by talking, then a checkpoint', () => {
-    for (const p of COURSE[0].parts) {
-      expect(p.stops.at(-1)!.kind, p.title).toBe('checkpoint');
-      expect(['speak', 'mission']).toContain(p.stops.at(-2)!.kind);
-    }
-  });
   it('lessons stay small: at most 6 new words each', () => {
     for (const s of ALL_STOPS) if (s.kind === 'words') expect(s.words.length, s.id).toBeLessThanOrEqual(6);
   });

@@ -21,11 +21,13 @@ export interface State {
   dayXp: Record<string, number>;     // XP earned per day (study calendar)
   mistakes: Record<string, Mistake>; // mistake journal, by card id (k:.., w:..) or grammar note
   mixDay: string;                    // last day the Daily Mix was finished
+  /** The learner's name (romaji, as typed) and how it is written in katakana. Empty = not asked yet. */
+  name: string; nameKana: string;
   settings: { theme: Theme; sfx: boolean; rate: number; romaji: boolean; voiceF: string; voiceM: string; calm: boolean };
 }
 
 const KEY = 'michi:v1';
-const fresh = (): State => ({ v: 1, xp: 0, streak: 0, lastDay: '', bestCombo: 0, done: {}, bosses: {}, cards: {}, stamps: {}, album: [], gates: {}, days: [], charms: 0, charmUsed: '', dayXp: {}, mistakes: {}, mixDay: '', settings: { theme: 'auto', sfx: true, rate: 0.8, romaji: true, voiceF: '', voiceM: '', calm: false } });
+const fresh = (): State => ({ v: 1, xp: 0, streak: 0, lastDay: '', bestCombo: 0, done: {}, bosses: {}, cards: {}, stamps: {}, album: [], gates: {}, days: [], charms: 0, charmUsed: '', dayXp: {}, mistakes: {}, mixDay: '', name: '', nameKana: '', settings: { theme: 'auto', sfx: true, rate: 0.8, romaji: true, voiceF: '', voiceM: '', calm: false } });
 
 function load(): State {
   try {

@@ -417,3 +417,17 @@ svg.art { display: block; width: 100%; height: auto; }
 .bar.warn > div { background: var(--orange); }
 .stop.k-checkpoint .ic { background: var(--gold-bg); color: var(--gold-ink); }
 .stop.k-speak .ic, .stop.k-mission .ic { background: var(--mint-bg); color: var(--mint-ink); }
+/* Beginner review fixes */
+.bigkana.word { font-size: 56px; }
+.hook { background: var(--tint); border-radius: 14px; padding: 10px 14px; font-size: 14px; line-height: 1.45; max-width: 340px; color: var(--ink); }
+.tipcard p { margin: 0; line-height: 1.55; font-size: 15px; }
+.tipcard p + p { margin-top: 6px; }
+.grid6 { display: grid; grid-template-columns: 22px repeat(5, minmax(0, 1fr)); gap: 6px; align-items: center; }
+.grid4 { display: grid; grid-template-columns: 22px repeat(3, minmax(0, 1fr)); gap: 6px; align-items: center; }
+.rowlab { font-size: 12px; font-weight: 800; color: var(--muted-ink); text-align: center; text-transform: uppercase; }
+.testintro { display: flex; flex-direction: column; gap: 8px; }
+.testintro .row { padding: 10px 14px; background: var(--tint); border-radius: 14px; }
+.nameform { display: flex; flex-direction: column; gap: 10px; }
+.nameform .namekana { font-size: 40px; text-align: center; }
+.pat .pjw { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.1; }
+.pat .pjw small { font-size: 12px; font-weight: 800; color: var(--muted-ink); }

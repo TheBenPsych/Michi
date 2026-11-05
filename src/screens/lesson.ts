@@ -6,13 +6,22 @@ import { S, save, addXp, logMistake, markActive, addCards } from '../state';
 import { sfx } from '../audio';
 import { showFlow, showTab, Tab } from '../nav';
 import { knownBefore } from '../progress';
+import { WORDS } from '../data/course';
+import { readable, knownKana } from '../script';
+
+/** Course words you can fully read once this lesson is done, that use at least one of its new kana. */
+const wordsFor = (l: Lesson) => {
+  const known = knownKana(); l.kana.forEach((k) => [...k.char].forEach((c) => known.add(c)));
+  const fresh = new Set(l.kana.flatMap((k) => [...k.char]));
+  return [...WORDS.values()].filter((w) => !w.kana.includes(' ') && readable(w.kana, known) && [...w.kana].some((c) => fresh.has(c)));
+};
 
 type Kind = 'lesson' | 'boss' | 'practice' | 'drill';
 interface Run { kind: Kind; lesson?: Lesson; unit?: Unit; queue: Q[]; pool: Kana[]; back: Tab }
 
 const xpFor = (combo: number) => 10 + (combo >= 3 ? 5 : 0) + (combo >= 6 ? 5 : 0);
 
-export const startLesson = (lesson: Lesson) => run({ kind: 'lesson', lesson, queue: buildLesson(lesson, knownBefore(lesson)), pool: [...lesson.kana, ...knownBefore(lesson)], back: 'home' });
+export const startLesson = (lesson: Lesson) => run({ kind: 'lesson', lesson, queue: buildLesson(lesson, knownBefore(lesson), Math.random, wordsFor(lesson)), pool: [...lesson.kana, ...knownBefore(lesson)], back: 'home' });
 export const startBoss = (unit: Unit) => run({ kind: 'boss', unit, queue: buildBoss(unit), pool: unit.lessons.flatMap((l) => l.kana), back: 'home' });
 export const startPractice = (queue: Q[], pool: Kana[], back: Tab = 'review') => run({ kind: 'practice', queue, pool, back });
 export const startDrill = (q: Q, back: Tab) => run({ kind: 'drill', queue: [q], pool: [], back });
@@ -45,7 +54,8 @@ function run(r: Run) {
   const next = () => {
     i++;
     if (usesHearts && hearts <= 0) return fail();
-    if (r.kind === 'boss' && bossHp <= 0) return complete(true);
+    // The kana boss is a skip test: you also need 90% right first time (in calm mode too, where there are no hearts).
+    if (r.kind === 'boss' && bossHp <= 0) return pct(right, graded) >= 90 ? complete(true) : fail();
     if (i >= r.queue.length) return complete(r.kind !== 'boss');
     render();
   };
@@ -54,7 +64,7 @@ function run(r: Run) {
     let msg: string, extra = '';
     const k = res.k ?? kanaOf(q);
     if (res.neutral) {
-      if (q.t === 'intro') return next();
+      if (q.t === 'intro' || q.t === 'tip') return next();
       if (q.t === 'match') { xp += 10; extra = '+10 XP'; }
       msg = res.note ?? 'Nice!';
       foot.append(h('div', { class: 'fb ok' }, h('span', null, msg), extra ? h('span', null, extra) : null));
@@ -65,7 +75,7 @@ function run(r: Run) {
         const gain = xpFor(combo); xp += gain;
         if (r.kind === 'boss') { bossHp--; sfx('hit'); oni?.classList.add('hit'); (oni?.querySelector('.bar > div') as HTMLElement | null)?.style.setProperty('width', `${(bossHp / hp) * 100}%`); }
         else sfx('good');
-        msg = r.kind === 'boss' ? `Hit! ${k!.char} is "${k!.romaji}"` : `Nice! ${k!.char} is "${k!.romaji}"`;
+        msg = `${r.kind === 'boss' ? 'Hit!' : 'Nice!'} ${k!.char} is "${k!.romaji}"${k!.en ? `: ${k!.en}` : ''}`;
         extra = `${combo >= 2 ? `Combo x${combo} · ` : ''}+${gain} XP`;
       } else {
         combo = 0; hearts--; sfx('bad');
@@ -73,7 +83,7 @@ function run(r: Run) {
         logMistake(k!.id, `${k!.char} is "${k!.romaji}"`);
         // Ask again later in a new form. In a boss fight this also means one more round.
         r.queue.push(retryQ(k!, r.pool));
-        msg = `${k!.char} is "${k!.romaji}"`;
+        msg = `${k!.char} is "${k!.romaji}"${k!.en ? `: ${k!.en}` : ''}`;
         extra = !usesHearts ? 'Again later' : hearts > 0 ? `${hearts} ♥ left` : 'Out of hearts';
       }
       const hd = foot.parentElement?.querySelector('.hearts'); if (hd) hd.textContent = `♥ ${hearts}`;
@@ -90,7 +100,7 @@ function run(r: Run) {
     const again = () => (r.kind === 'lesson' ? startLesson(r.lesson!) : r.kind === 'boss' ? startBoss(r.unit!) : showTab(r.back));
     showFlow(h('div', { class: 'screen flow' },
       h('div', { class: 'center' }, h('div', { class: 'medal bad' }, jp('休')), h('div', { class: 'title' }, r.kind === 'boss' ? `${r.unit!.boss.name} wins this round` : 'Out of hearts'),
-        h('div', { class: 'sub' }, 'Take a breath. Every mistake shows you what to practice next.')),
+        h('div', { class: 'sub' }, r.kind === 'boss' ? `To skip these lessons you need 90% right (you got ${pct(right, graded)}%). No problem: the lessons teach every kana step by step.` : 'Take a breath. Every mistake shows you what to practice next.')),
       missed.size ? h('div', { class: 'miss' }, [...missed.values()].map((k) => h('span', null, jp(k.char), ` ${k.romaji}`))) : null,
       h('div', { style: { flex: '1' } }),
       h('button', { class: 'btn', onclick: again }, 'Try again'),

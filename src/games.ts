@@ -1,4 +1,4 @@
-import { Kana } from './data/kana';
+import { Kana, HOOKS } from './data/kana';
 import { Q, isAnswer, shuffle, hiraOf } from './lessonGen';
 import { h, svgEl, jp } from './ui';
 import { say, sfx } from './audio';
@@ -28,17 +28,28 @@ function origin(k: Kana): string | null {
   return parts.length ? parts.join(' ') : null;
 }
 
+/** Size class for a kana card: one kana, a two-kana combo, or a whole word. */
+export const kcls = (k: Kana) => `bigkana ${k.char.length > 2 ? 'word' : k.char.length > 1 ? 'multi' : ''}`;
+
+/** The start card of a kana lesson: what it teaches and why. */
+function tip(q: Extract<Q, { t: 'tip' }>, done: Done): Game {
+  return { eyebrow: 'Before you start', title: q.title,
+    el: h('div', { class: 'stage' }, h('div', { class: 'note tipcard' }, q.text.map((t) => h('p', null, t))),
+      h('button', { class: 'btn', onclick: () => done({ ok: true, neutral: true }) }, 'Start')) };
+}
+
 export function intro(k: Kana, done: Done): Game {
   setTimeout(() => say(k.sound), 250);
-  const o = origin(k);
+  const o = k.note ?? origin(k), word = k.char.length > 2, hook = HOOKS[k.char];
   return {
-    eyebrow: 'New kana', title: `Meet ${k.char}`,
+    eyebrow: word ? 'New word' : 'New kana', title: word ? `${k.char} · ${k.en}` : `Meet ${k.char}`,
     el: h('div', { class: 'center' },
-      jp(k.char, `bigkana ${k.char.length > 1 ? 'multi' : ''}`),
+      jp(k.char, kcls(k)),
       h('div', { style: { fontSize: '30px', fontWeight: '800', color: 'var(--tint-ink)' } }, k.romaji),
       soundBtn(k),
-      strokesOf(k.char[0]).length ? strokeAnim(k.char) : null,
-      h('div', { class: 'small' }, 'Tap the strokes to replay them.'),
+      !word && strokesOf(k.char[0]).length ? strokeAnim(k.char) : null,
+      !word ? h('div', { class: 'small' }, 'Tap the strokes to replay them.') : null,
+      hook ? h('div', { class: 'hook' }, h('b', null, 'Remember it: '), hook) : null,
       o ? h('div', { class: 'sub' }, o) : null,
       h('button', { class: 'btn', style: { marginTop: '8px' }, onclick: () => done({ ok: true, neutral: true }) }, 'Got it')),
   };
@@ -72,7 +83,8 @@ function choice(q: Extract<Q, { t: 'pickRomaji' | 'pickKana' | 'listen' }>, done
     };
   }
   if (q.t === 'pickKana') return { eyebrow: 'Pick the kana', title: `Which one is "${k.romaji}"?`, el: h('div', { class: 'stage' }, h('div', { class: 'bigkana', style: { fontSize: '72px', fontWeight: '800', color: 'var(--tint-ink)' } }, k.romaji), grid) };
-  return { eyebrow: 'Read it', title: 'What sound is this?', el: h('div', { class: 'stage' }, jp(k.char, `bigkana ${k.char.length > 1 ? 'multi' : ''}`), grid) };
+  const real = k.id.startsWith('w:');
+  return { eyebrow: real ? 'Read a real word' : 'Read it', title: real ? `Read it: this means "${k.en}"` : 'What sound is this?', el: h('div', { class: 'stage' }, jp(k.char, kcls(k)), grid) };
 }
 
 function typeIt(k: Kana, done: Done): Game {
@@ -194,7 +206,7 @@ export function trace(k: Kana, done: Done): Game {
     else {
       fails++; sfx('bad'); box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
       if (fails >= 3) { helped++; status.textContent = 'Here it is. On to the next one.'; advance(); }
-      else { status.textContent = startD >= 20 ? 'Start at the dot and follow the arrow.' : 'Close! Follow the blue stroke.'; showHint(); }
+      else { status.textContent = startD >= 20 ? 'Start at the dot and follow the blue stroke.' : 'Close! Follow the blue stroke.'; showHint(); }
     }
   };
   canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end);
@@ -205,6 +217,7 @@ export function trace(k: Kana, done: Done): Game {
 
 export function renderGame(q: Q, done: Done): Game {
   switch (q.t) {
+    case 'tip': return tip(q, done);
     case 'intro': return intro(q.k, done);
     case 'type': return typeIt(q.k, done);
     case 'match': return match(q, done);

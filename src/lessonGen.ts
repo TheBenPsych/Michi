@@ -1,6 +1,7 @@
-import { Kana, Lesson, Unit, KANA_BY_ID } from './data/kana';
+import { Kana, Lesson, Unit, KANA_BY_ID, SCRIPT_INTRO } from './data/kana';
 
 export type Q =
+  | { t: 'tip'; title: string; text: string[] }
   | { t: 'intro'; k: Kana }
   | { t: 'pickRomaji'; k: Kana; options: string[] }
   | { t: 'pickKana'; k: Kana; options: Kana[] }
@@ -33,34 +34,53 @@ function mcFor(t: 'pickRomaji' | 'pickKana' | 'listen', k: Kana, near: Kana[], f
   return t === 'pickRomaji' ? { t, k, options: opts.map((o) => o.romaji) } : { t, k, options: opts };
 }
 
-/** Builds the question queue for a lesson. `known` = kana learned in earlier lessons of the same script. */
-export function buildLesson(lesson: Lesson, known: Kana[], rng: Rng = Math.random): Q[] {
+/** A real word, dressed as a kana card so every kana game can ask it. */
+export interface ReadWord { id: string; kana: string; romaji: string; alts?: string[]; en: string }
+const asKana = (w: ReadWord, script: Kana['script']): Kana => ({ id: `w:${w.id}`, char: w.kana.replace('〜', ''), romaji: w.romaji.replace(/[\s~-]/g, ''), alts: (w.alts ?? []).map((a) => a.replace(/[\s~-]/g, '')), script, sound: w.kana.replace('〜', ''), en: w.en });
+
+/** Builds the question queue for a lesson. `known` = kana learned in earlier lessons of the same script.
+ * `words` = real words the learner can read once this lesson is done (read at the end, as the plan's "read a real word"). */
+export function buildLesson(lesson: Lesson, known: Kana[], rng: Rng = Math.random, words: ReadWord[] = []): Q[] {
   const fresh = lesson.kana;
-  const q: Q[] = [];
+  // Start card: what this lesson is about (and, on day one, what the script is for).
+  const first = lesson.id.endsWith('-vowels');
+  const q: Q[] = [{ t: 'tip', title: lesson.title, text: first ? [SCRIPT_INTRO[lesson.kana[0].script], lesson.blurb] : [lesson.blurb] }];
   // Teach in small groups of up to 5: intro + immediate check for each.
   for (const k of fresh) { q.push({ t: 'intro', k }); q.push(mcFor('pickRomaji', k, fresh, known, rng)); }
   if (lesson.trace) for (const k of sample(fresh, Math.min(3, fresh.length), rng)) q.push({ t: 'trace', k });
 
   const drill: Q[] = [];
   const types: ('pickKana' | 'listen' | 'type' | 'pickRomaji')[] = ['pickKana', 'listen', 'type'];
-  const focus = fresh.length > 6 ? sample(fresh, 8, rng) : fresh;
-  for (const k of focus) for (const t of sample(types, fresh.length > 6 ? 1 : 2, rng)) drill.push(t === 'type' ? { t, k } : mcFor(t, k, fresh, known, rng));
+  // Every new kana gets practised (one game each in big lessons, two in small ones).
+  for (const k of fresh) for (const t of sample(types, fresh.length > 6 ? 1 : 2, rng)) drill.push(t === 'type' ? { t, k } : mcFor(t, k, fresh, known, rng));
   // A few review questions on earlier kana.
   for (const k of sample(known, Math.min(3, known.length), rng)) drill.push(mcFor(rng() < 0.5 ? 'listen' : 'pickKana', k, known, fresh, rng));
 
   const out = [...q, ...shuffle(drill, rng)];
-  // Match round about two-thirds of the way through.
+  // Match round about two-thirds of the way through, and never before every new kana has been shown.
   const pairs = sample(fresh, Math.min(5, fresh.length), rng);
-  const mode = lesson.unit === 'kata' && rng() < 0.5 ? 'script' : 'romaji';
-  out.splice(Math.floor(out.length * 0.66), 0, { t: 'match', pairs, mode });
+  const mode = lesson.unit === 'kata' && !lesson.kana.some((k) => k.en) && rng() < 0.5 ? 'script' : 'romaji';
+  out.splice(Math.max(q.length, Math.floor(out.length * 0.66)), 0, { t: 'match', pairs, mode });
+  // Finish by reading one or two real words made of what you know.
+  const ws = shuffle(words, rng).slice(0, 2);
+  const others = shuffle(words.length >= 4 ? words : [...words, ...FALLBACK], rng);
+  for (const w of ws) {
+    const k = asKana(w, fresh[0].script);
+    const opts = shuffle([k.romaji, ...others.map((o) => o.romaji.replace(/[\s~-]/g, '')).filter((r) => r !== k.romaji).filter((r, i, a) => a.indexOf(r) === i).slice(0, 3)], rng);
+    out.push({ t: 'pickRomaji', k, options: opts });
+  }
   return out;
 }
 
-/** Boss fight: 20 quick questions over the whole unit. */
-export function buildBoss(unit: Unit, rng: Rng = Math.random, n = 20): Q[] {
+const FALLBACK: ReadWord[] = [{ id: 'f1', kana: '', romaji: 'sakana', en: '' }, { id: 'f2', kana: '', romaji: 'kokoro', en: '' }, { id: 'f3', kana: '', romaji: 'tamago', en: '' }];
+
+/** Kana boss = the skip test: 30 questions with at least one from every lesson, so you can't skip by luck. */
+export function buildBoss(unit: Unit, rng: Rng = Math.random, n = 30): Q[] {
   const all = unit.lessons.flatMap((l) => l.kana);
+  const picked = unit.lessons.map((l) => sample(l.kana, 1, rng)[0]);
+  const ks = shuffle([...picked, ...sample(all.filter((k) => !picked.includes(k)), n - picked.length, rng)], rng);
   const types = ['pickRomaji', 'pickKana', 'listen', 'type'] as const;
-  return sample(all, n, rng).map((k, i) => {
+  return ks.map((k, i) => {
     const t = types[i % 4];
     return t === 'type' ? { t, k } : mcFor(t, k, all, [], rng);
   });
