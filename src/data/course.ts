@@ -27,6 +27,8 @@ export interface Part { title: string; stops: Stop[] }
 export interface CourseUnit {
   id: string; n: number; jp: string; title: string; kanaUnit: 'hira' | 'kata';
   parts: Part[]; words: Word[]; boss?: { name: string; jp: string }; soon?: string;
+  /** Kanji pressed into the stamp book when the unit is cleared, and what the learner can now do. */
+  stamp: string; cando: string[];
 }
 
 export const WORDS = new Map<string, Word>(WORDS_U1.map((w) => [w.id, w]));
@@ -44,7 +46,8 @@ const culture = (i: number): Stop => ({ id: CULTURE_U1[i].id, kind: 'culture', t
 
 export const COURSE: CourseUnit[] = [
   {
-    id: 'u1', n: 1, jp: 'はじめまして', title: 'Meeting new friends', kanaUnit: 'hira', words: WORDS_U1,
+    id: 'u1', n: 1, jp: 'はじめまして', title: 'Meeting new friends', kanaUnit: 'hira', words: WORDS_U1, stamp: '友',
+    cando: ['Say hello and goodbye at any time of day', 'Introduce yourself: name, school and major', 'Ask where someone is from and how old they are'],
     boss: { name: 'Gatekeeper Tanuki', jp: '狸' },
     parts: [
       { title: 'Hello', stops: [kana('h', 'vowels', 'Kana: あいうえお'), kana('h', 'k', 'Kana: かきくけこ'),
@@ -66,7 +69,8 @@ export const COURSE: CourseUnit[] = [
     ],
   },
   {
-    id: 'u2', n: 2, jp: 'かいもの', title: 'Shopping', kanaUnit: 'kata', words: [],
+    id: 'u2', n: 2, jp: 'かいもの', title: 'Shopping', kanaUnit: 'kata', words: [], stamp: '買',
+    cando: ['Read every katakana sound', 'Read loanwords like coffee and TV'],
     soon: 'Genki-style stories, words and grammar for this unit are coming next. Katakana is ready now.',
     parts: [{ title: 'Katakana', stops: [
       kana('k', 'vowels', 'Kana: アイウエオ'), kana('k', 'k', 'Kana: カキクケコ'), kana('k', 's', 'Kana: サシスセソ'), kana('k', 't', 'Kana: タチツテト'),

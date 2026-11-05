@@ -1,8 +1,9 @@
 import { h, bar } from '../ui';
 import { S, save, resetAll, currentStreak, levelOf, levelStart, Theme } from '../state';
-import { learnedKana, mastery, currentUnit, learnedWords, stopDone } from '../progress';
+import { learnedKana, mastery, currentUnit, learnedWords, stopDone, currentRegion, stampCount } from '../progress';
+import { openClimb } from './climb';
 import { UNITS, CHART_ROWS, KANA_BY_ID, chartChar } from '../data/kana';
-import { COURSE, CULTURE, ALL_STOPS } from '../data/course';
+import { CULTURE, ALL_STOPS } from '../data/course';
 import { jp } from '../ui';
 import { cultureCard } from './stops';
 import { rj } from '../script';
@@ -24,8 +25,8 @@ export function meTab(): HTMLElement {
     header(),
     h('div', null, h('div', { class: 'eyebrow' }, 'Your path'), h('div', { class: 'title' }, `Level ${lv}`),
       h('div', { class: 'sub' }, `${S.xp - a} / ${b - a} XP to level ${lv + 1}`), h('div', { style: { marginTop: '10px' } }, bar((S.xp - a) / (b - a)))),
-    h('div', { class: 'card' }, h('div', { class: 'eyebrow' }, 'Course'), h('h3', { style: { marginTop: '4px' } }, `N5 · Unit ${cu.n}: ${cu.title}`),
-      h('p', null, `${ALL_STOPS.filter(stopDone).length} of ${ALL_STOPS.length} stops done · ${COURSE.filter((u) => S.stamps[u.id]).length} unit stamps`)),
+    h('div', { class: 'card row' }, h('div', null, h('div', { class: 'eyebrow' }, `Rank · ${currentRegion().rank} `, jp(currentRegion().rankJp)), h('h3', { style: { marginTop: '4px' } }, `${currentRegion().level} · Unit ${cu.n}: ${cu.title}`),
+      h('p', null, `${ALL_STOPS.filter(stopDone).length} of ${ALL_STOPS.length} stops done · ${stampCount(currentRegion())} stamps`)), h('button', { class: 'soundbtn', onclick: openClimb }, 'Map')),
     h('section', { class: 'card kanaprog' }, h('h3', null, 'Kana progress'),
       UNITS.map((u) => { const all = u.lessons.flatMap((l) => l.kana), n = all.filter((k) => mastery(k.id) !== 'n').length;
         return h('div', null, h('div', { class: 'row small' }, h('b', null, jp(u.jp), ` ${u.title}`), h('b', null, `${n} / ${all.length}`)), h('div', { style: { marginTop: '4px' } }, bar(n / all.length, u.script === 'h' ? 'mint' : ''))); }),
@@ -44,6 +45,8 @@ export function meTab(): HTMLElement {
         : h('div', { class: 'acard empty' }, h('small', null, 'Locked'))))),
     h('section', { class: 'card' },
       h('div', { class: 'setting' }, h('b', null, 'Theme'), seg<Theme>([['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']], S.settings.theme, (v) => { S.settings.theme = v; applyTheme(); })),
+      h('div', { class: 'setting' }, h('div', null, h('b', null, 'Calm mode'), h('div', { class: 'small' }, 'No timers, hearts, combos or sounds. Good for tired days.')), h('button', { class: `toggle ${S.settings.calm ? 'on' : ''}`, role: 'switch', 'aria-checked': String(S.settings.calm), 'aria-label': 'Calm mode', onclick: () => { S.settings.calm = !S.settings.calm; save(); showTab('me'); } })),
+      h('div', { class: 'setting' }, h('div', null, h('b', null, 'Omamori charms'), h('div', { class: 'small' }, `You hold ${S.charms} of 2. Earn one for every 7 days in a row. A charm saves your streak if you miss one day.`)), jp('守'.repeat(Math.max(1, S.charms)), S.charms ? 'charmjp' : 'charmjp off')),
       h('div', { class: 'setting' }, h('b', null, 'Sound effects'), h('button', { class: `toggle ${S.settings.sfx ? 'on' : ''}`, role: 'switch', 'aria-checked': String(S.settings.sfx), 'aria-label': 'Sound effects', onclick: () => { S.settings.sfx = !S.settings.sfx; save(); showTab('me'); } })),
       h('div', { class: 'setting' }, h('b', null, 'Romaji help'), h('button', { class: `toggle ${S.settings.romaji ? 'on' : ''}`, role: 'switch', 'aria-checked': String(S.settings.romaji), 'aria-label': 'Show romaji under words', onclick: () => { S.settings.romaji = !S.settings.romaji; save(); showTab('me'); } })),
       h('div', { class: 'setting' }, h('b', null, 'Voice speed'), seg<number>([[0.6, 'Slow'], [0.8, 'Normal'], [1, 'Fast']], S.settings.rate, (v) => { S.settings.rate = v; })),

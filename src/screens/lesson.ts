@@ -23,7 +23,7 @@ function run(r: Run) {
   const hp = r.kind === 'boss' ? r.queue.length : 0;
   let bossHp = hp;
   // Hearts only in boss fights: practice stays relaxed and mistakes just come back later.
-  const usesHearts = r.kind === 'boss';
+  const usesHearts = r.kind === 'boss' && !S.settings.calm;
 
   const quit = () => { if (i === 0 || r.kind === 'drill' || confirm('Leave this lesson? Progress in it will be lost.')) showTab(r.back); };
 
@@ -37,7 +37,7 @@ function run(r: Run) {
       usesHearts ? h('div', { class: 'hearts', 'aria-label': `${hearts} hearts left` }, '♥ ', hearts) : null);
     const foot = h('div', { style: { display: 'flex', flexDirection: 'column', gap: '12px' } });
     const game = renderGame(q, (res) => onAnswer(res, q, foot, oni));
-    const num = r.kind === 'boss' ? `${r.unit!.boss.name.toUpperCase()} · ${i + 1} OF ${r.queue.length}` : combo >= 2 ? `COMBO x${combo}` : '';
+    const num = r.kind === 'boss' ? `${r.unit!.boss.name.toUpperCase()} · ${i + 1} OF ${r.queue.length}` : combo >= 2 && !S.settings.calm ? `COMBO x${combo}` : '';
     screen.append(top, h('div', { class: 'qhead' }, h('div', { class: 'eyebrow' }, num ? `${num} · ` : '', game.eyebrow), h('div', { class: 'title' }, game.title)), game.el, foot);
     showFlow(screen, quit);
   };
