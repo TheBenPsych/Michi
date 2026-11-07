@@ -3,6 +3,8 @@ import { Card, newCard, DAY } from './srs';
 /** One entry in the mistake journal. */
 export interface Mistake { n: number; last: number; note: string }
 export type Theme = 'auto' | 'light' | 'dark';
+export interface DeskState { done: Record<string, number>; days: string[]; writing: { day: string; text: string }[]; cando: Record<string, boolean>; finished: string }
+export const freshDesk = (): DeskState => ({ done: {}, days: [], writing: [], cando: {}, finished: '' });
 export interface State {
   v: 1;
   xp: number;
@@ -23,16 +25,18 @@ export interface State {
   mixDay: string;                    // last day the Daily Mix was finished
   /** The learner's name (romaji, as typed) and how it is written in katakana. Empty = not asked yet. */
   name: string; nameKana: string;
+  /** Study Desk (the textbook-style Genki trial): finished sections (id -> time), study days, writing and self-check. */
+  desk: DeskState;
   settings: { theme: Theme; sfx: boolean; rate: number; romaji: boolean; voiceF: string; voiceM: string; calm: boolean };
 }
 
 const KEY = 'michi:v1';
-const fresh = (): State => ({ v: 1, xp: 0, streak: 0, lastDay: '', bestCombo: 0, done: {}, bosses: {}, cards: {}, stamps: {}, album: [], gates: {}, days: [], charms: 0, charmUsed: '', dayXp: {}, mistakes: {}, mixDay: '', name: '', nameKana: '', settings: { theme: 'auto', sfx: true, rate: 0.8, romaji: true, voiceF: '', voiceM: '', calm: false } });
+const fresh = (): State => ({ v: 1, xp: 0, streak: 0, lastDay: '', bestCombo: 0, done: {}, bosses: {}, cards: {}, stamps: {}, album: [], gates: {}, days: [], charms: 0, charmUsed: '', dayXp: {}, mistakes: {}, mixDay: '', name: '', nameKana: '', desk: freshDesk(), settings: { theme: 'auto', sfx: true, rate: 0.8, romaji: true, voiceF: '', voiceM: '', calm: false } });
 
 function load(): State {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) { const s = JSON.parse(raw); return { ...fresh(), ...s, settings: { ...fresh().settings, ...s.settings } }; }
+    if (raw) { const s = JSON.parse(raw); return { ...fresh(), ...s, desk: { ...freshDesk(), ...s.desk }, settings: { ...fresh().settings, ...s.settings } }; }
   } catch { /* corrupted or unavailable: start fresh */ }
   return fresh();
 }

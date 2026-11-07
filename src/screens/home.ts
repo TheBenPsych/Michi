@@ -12,6 +12,7 @@ import { startStop, startUnitBoss, startGate } from './stops';
 import { showTab } from '../nav';
 import { openClimb } from './climb';
 import { startMix } from './mix';
+import { openDesk } from '../desk/desk';
 
 export function header() {
   const st = currentStreak();
@@ -96,6 +97,10 @@ export function home(): HTMLElement {
       h('span', { class: 't' }, h('b', null, `${r.rank} · ${r.level}`), h('small', null, `Rank ${ri + 1} of 5 · ${r.place}`),
         h('span', { class: 'rbar' }, bar(stampCount(r) / Math.max(1, r.plan.length), 'mint'))),
       h('span', { class: 'go2' }, 'Map')),
+    h('button', { class: 'deskcard', onclick: openDesk },
+      h('span', { class: 'mjp jp' }, '机'),
+      h('span', { class: 't' }, h('b', null, 'Study Desk · try it'), h('small', null, 'Genki Lesson 1, textbook style: speak, listen and write, with Tama the cat.')),
+      h('span', { class: 'go2' }, 'Open')),
     weekCard(),
     h('button', { class: `mixcard ${S.mixDay === dayKey() ? 'done' : ''}`, onclick: startMix },
       h('span', { class: 'mjp jp' }, '混'),
