@@ -75,7 +75,7 @@ function stepDone(n: number) {
     h('p', { class: 'p muted' }, st.next))),
   h('div', { class: 'ft' }, h('button', { class: 'btn', onclick: startStep }, `Continue to Step ${n + 2}`), h('button', { class: 'link c', onclick: home }, 'Stop here for today')));
 }
-const label = (item: string) => { const [k, id] = item.split(':'); return k === 'k' ? id : k === 'w' ? `${L[id].ja} (${L[id].en})` : L[id].chunks.map((c) => c[1]).join(' '); };
+const label = (item: string) => { const [k, id] = item.split(':'); return k === 'k' ? id : k === 'w' ? `${L[id].ja} (${L[id].en})` : L[id].chunks.map((c) => c[1]).join(' ').replace(/^./, (c) => c.toUpperCase()); };
 function chapterResult(stats: Stats) {
   const missed = Object.keys(S.items).filter(weak).slice(0, 4);
   show(h('div', { class: 'pg' },
@@ -101,7 +101,7 @@ function warmup() {
     S.warmDay = today(); save(); sfx('done');
     show(h('div', { class: 'pg' }, h('div', { class: 'mid' }, h('p', { class: 'ey' }, 'Warm-up finished'),
       h('h2', { class: 'lt' }, `${stats.asked} items, ${stats.right} right first time`),
-      stats.missed.length ? h('p', { class: 'p muted' }, `${stats.missed.map(label).join(' and ')} will come back tomorrow.`) : h('p', { class: 'p muted' }, 'Nothing needs another look today.'))),
+      stats.missed.length ? h('p', { class: 'p muted' }, `Coming back tomorrow: ${stats.missed.map(label).join(' · ')}`) : h('p', { class: 'p muted' }, 'Nothing needs another look today.'))),
     h('div', { class: 'ft' }, h('button', { class: 'btn', onclick: home }, 'Continue')));
   } });
 }
@@ -114,7 +114,7 @@ export function kanaChart() {
   show(top('Kana'), h('div', { class: 'pg' },
     h('div', { class: 'kc', lang: 'ja' }, ...CHART.flatMap((r) => [...r].map((k) => (k === ' ' ? h('span', null)
       : h('button', { class: knows(k) ? (weak(`k:${k}`) ? 'wk' : '') : 'un', 'aria-label': `${k}, ${kanaOf(k).r}`, onclick: () => kanaPage(k) }, k))))),
-    h('p', { class: 'hint c' }, 'Dark: you know it. Outlined: needs work. Grey: not yet. Tap any letter.')),
+    h('p', { class: 'hint c' }, 'Solid: you know it. Outlined: needs work. Faded: not yet. Tap any letter.')),
   h('div', { class: 'ft' },
     S.kana.length >= 3 ? h('button', { class: 'btn', onclick: practice }, 'Practise what I know') : null,
     nr >= 0 ? h('button', { class: S.kana.length >= 3 ? 'link c' : 'btn', onclick: () => learnRow(nr) }, `Learn the next row: the ${ROW_NAMES[nr]}`) : null));
@@ -168,7 +168,7 @@ function wordList() {
   const ws = WORDS.filter((w) => S.items[`w:${w.id}`]), ps = PHRASES.filter((p) => S.items[`p:${p.id}`]);
   show(top('Words'), h('div', { class: 'pg' },
     ps.length ? h('p', { class: 'ey' }, 'Phrases') : null,
-    ...ps.map((p) => h('button', { class: 'wr', onclick: () => sayLine(p.id) }, ill(p.scene), h('span', { style: { display: 'flex', flexDirection: 'column', color: 'var(--fg)' } }, h('b', { style: { fontFamily: 'var(--en)', fontSize: '1rem', fontWeight: '700' } }, L[p.id].chunks.map((c) => c[1]).join(' ')), h('small', { class: 'hint' }, L[p.id].en)))),
+    ...ps.map((p) => h('button', { class: 'wr', onclick: () => sayLine(p.id) }, ill(p.scene), h('span', { style: { display: 'flex', flexDirection: 'column', color: 'var(--fg)' } }, h('b', { style: { fontFamily: 'var(--en)', fontSize: '1rem', fontWeight: '700' } }, label(`p:${p.id}`)), h('small', { class: 'hint' }, L[p.id].en)))),
     ws.length ? h('p', { class: 'ey', style: { marginTop: '8px' } }, 'Words') : null,
     ...ws.map((w) => h('button', { class: 'wr', onclick: () => sayLine(w.id) }, ill(w.scene), h('b', { lang: 'ja' }, L[w.id].ja), h('span', null, L[w.id].en))),
     h('p', { class: 'hint c' }, 'Tap any line to hear it.')),
