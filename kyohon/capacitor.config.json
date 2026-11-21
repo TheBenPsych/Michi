@@ -1,0 +1,6 @@
+{
+  "appId": "com.thebenpsych.kyohon",
+  "appName": "Kyōhon",
+  "webDir": "dist",
+  "android": { "backgroundColor": "#FAF5EA" }
+}
