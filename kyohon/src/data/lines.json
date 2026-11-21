@@ -1,0 +1,15 @@
+{
+  "ohayo": { "ja": "おはようございます", "tts": "おはようございます。", "en": "Good morning", "chunks": [["おはよう", "ohayō"], ["ございます", "gozaimasu"]], "heard": ["おはようございます", "お早うございます", "おはよう御座います"], "voices": ["f", "m"] },
+  "konnichiwa": { "ja": "こんにちは", "tts": "こんにちは。", "en": "Hello / Good afternoon", "chunks": [["こんにちは", "konnichiwa"]], "heard": ["こんにちは", "今日は", "こんにちわ"], "voices": ["f", "m"] },
+  "konbanwa": { "ja": "こんばんは", "tts": "こんばんは。", "en": "Good evening", "chunks": [["こんばんは", "konbanwa"]], "heard": ["こんばんは", "今晩は", "こんばんわ"], "voices": ["f", "m"] },
+  "arigato": { "ja": "ありがとうございます", "tts": "ありがとうございます。", "en": "Thank you", "chunks": [["ありがとう", "arigatō"], ["ございます", "gozaimasu"]], "heard": ["ありがとうございます", "有難うございます", "有り難うございます", "ありがとう御座います"], "voices": ["f", "m"] },
+  "sumimasen": { "ja": "すみません", "tts": "すみません。", "en": "Excuse me / I'm sorry", "chunks": [["すみません", "sumimasen"]], "heard": ["すみません", "済みません", "すいません"], "voices": ["f", "m"] },
+  "ohayo_c": { "ja": "おはよう", "tts": "おはよう。", "en": "Morning (casual)", "chunks": [["おはよう", "ohayō"]], "heard": ["おはよう"], "voices": ["f"] },
+  "arigato_c": { "ja": "ありがとう", "tts": "ありがとう。", "en": "Thanks (casual)", "chunks": [["ありがとう", "arigatō"]], "heard": ["ありがとう"], "voices": ["f"] },
+  "ie": { "ja": "いえ", "tts": "家", "en": "house", "chunks": [["いえ", "ie"]], "heard": ["いえ", "家", "言え"], "voices": ["f"] },
+  "ao": { "ja": "あお", "tts": "青", "en": "blue", "chunks": [["あお", "ao"]], "heard": ["あお", "青", "蒼"], "voices": ["f"] },
+  "eki": { "ja": "えき", "tts": "駅", "en": "station", "chunks": [["えき", "eki"]], "heard": ["えき", "駅", "液"], "voices": ["f"] },
+  "kao": { "ja": "かお", "tts": "顔", "en": "face", "chunks": [["かお", "kao"]], "heard": ["かお", "顔"], "voices": ["f"] },
+  "aka": { "ja": "あか", "tts": "赤", "en": "red", "chunks": [["あか", "aka"]], "heard": ["あか", "赤", "垢"], "voices": ["f"] },
+  "ike": { "ja": "いけ", "tts": "池", "en": "pond", "chunks": [["いけ", "ike"]], "heard": ["いけ", "池", "行け"], "voices": ["f"] }
+}

@@ -3,7 +3,9 @@ name: Build Android APK
 on:
   push:
     branches: [main]
+    paths-ignore: ['kyohon/**', '.github/workflows/kyohon.yml']
   pull_request:
+    paths-ignore: ['kyohon/**', '.github/workflows/kyohon.yml']
   workflow_dispatch:
 
 permissions:

@@ -1,0 +1,68 @@
+name: Build Kyohon APK
+
+on:
+  push:
+    branches: [main]
+    paths: ['kyohon/**', '.github/workflows/kyohon.yml']
+  pull_request:
+    paths: ['kyohon/**', '.github/workflows/kyohon.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    working-directory: kyohon
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: kyohon/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install, test and build the web app
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+          npm run build
+        env:
+          APP_VERSION: 0.1.${{ github.run_number }}
+
+      - name: Copy the web app into the Android project
+        run: npx cap sync android
+
+      - name: Build the APK
+        working-directory: kyohon/android
+        run: ./gradlew assembleDebug -PversionCode=${{ github.run_number }} --no-daemon
+
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk Kyohon.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kyohon-apk
+          path: kyohon/Kyohon.apk
+
+      # On main, publish a GitHub Release so the APK can be downloaded straight from the phone.
+      - name: Publish release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: kyohon-${{ github.run_number }}
+          name: Kyōhon 0.1.${{ github.run_number }}
+          body: Install Kyohon.apk on your Android phone. It installs next to Michi, updates over earlier Kyōhon versions and keeps your progress.
+          files: kyohon/Kyohon.apk
+          make_latest: true

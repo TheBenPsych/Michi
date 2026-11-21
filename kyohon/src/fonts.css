@@ -1,0 +1,7 @@
+/* Lexend for Latin/romaji (readability), Zen Maru Gothic for kana/kanji (clean, textbook-shaped kana: き さ keep their separate strokes). Bundled offline. */
+@font-face { font-family: 'Lexend'; font-display: swap; font-weight: 100 599; src: url('@fontsource/lexend/files/lexend-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Lexend'; font-display: swap; font-weight: 600 900; src: url('@fontsource/lexend/files/lexend-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Lexend'; font-display: swap; font-weight: 100 599; src: url('@fontsource/lexend/files/lexend-latin-ext-500-normal.woff2') format('woff2'); unicode-range: U+0100-024F, U+1E00-1EFF; }
+@font-face { font-family: 'Lexend'; font-display: swap; font-weight: 600 900; src: url('@fontsource/lexend/files/lexend-latin-ext-700-normal.woff2') format('woff2'); unicode-range: U+0100-024F, U+1E00-1EFF; }
+@font-face { font-family: 'Zen Maru Gothic'; font-display: swap; font-weight: 100 599; src: url('@fontsource/zen-maru-gothic/files/zen-maru-gothic-japanese-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Zen Maru Gothic'; font-display: swap; font-weight: 600 900; src: url('@fontsource/zen-maru-gothic/files/zen-maru-gothic-japanese-700-normal.woff2') format('woff2'); }
