@@ -1,5 +1,5 @@
 /** Every kind of lesson card. Each one asks the learner to do something: hear, say, write, spell or choose. */
-import { h, jp } from './ui';
+import { h, jp, ic } from './ui';
 import { Card, Run, fb } from './engine';
 import { ill, av, SPEAKER } from './art';
 import { sayLine, sayKana, sfx } from './audio';
@@ -25,6 +25,7 @@ const audioRow = (id: string) => h('div', { class: 'row c' }, playBtn(() => sayL
 
 /** Hear a phrase, see when it is used, say it aloud. */
 export const hear = (id: string): Card => ({
+  tag: 'listen',
   build(run, body) {
     const p = phrase(id);
     body.append(ill(p.scene), h('p', { class: 'hint c' }, p.when), rl(id), h('p', { class: 'p c' }, h('b', null, L[id].en)), audioRow(id), h('p', { class: 'hint c' }, 'Listen, then say it aloud.'));
@@ -38,6 +39,7 @@ export interface PickSpec { item?: string; prompt: string; audio?: () => void; b
 /** Choose one of two or three answers. With delay, the choices appear a moment later so the learner recalls first. */
 export const choose = (s: PickSpec): Card => ({
   item: s.item,
+  tag: s.big ? 'read' : 'listen',
   build(run, body) {
     const opts = shuffle(s.opts), cols = s.cols ?? (opts.length === 2 ? 2 : 3);
     const grid = h('div', { class: `opts ${cols === 1 ? 'one' : cols === 2 ? 'two' : ''} ${s.delay ? 'wait' : ''}` });
@@ -63,6 +65,7 @@ export const choose = (s: PickSpec): Card => ({
 
 /** Meet one letter: its shape, its sound and one short memory hook. */
 export const meetKana = (k: string): Card => ({
+  tag: 'read',
   build(run, body) {
     const d = kanaOf(k);
     body.append(h('div', { class: 'kbig jp', lang: 'ja' }, k), h('p', { class: 'p c' }, h('b', null, d.r), d.sound ? ` · ${d.sound}` : ''),
@@ -75,6 +78,7 @@ export const meetKana = (k: string): Card => ({
 
 /** Write a letter. "trace" shows the strokes being drawn first and a faint guide; "free" is from memory and is graded. */
 export const writeKana = (k: string, mode: 'trace' | 'free'): Card => ({
+  tag: 'read',
   item: mode === 'free' ? `k:${k}` : undefined,
   build(run, body) {
     const d = kanaOf(k), n = strokesOf(k).length, strokesWord = `${n} stroke${n === 1 ? '' : 's'}`;
@@ -88,7 +92,7 @@ export const writeKana = (k: string, mode: 'trace' | 'free'): Card => ({
         const v = pad.check();
         slot.replaceChildren();
         if (v.ok) { if (mode === 'free' && !tried) run.answer(true, v.msg); else { sfx('good'); slot.append(fb(true, v.msg)); run.footer('Next', run.next); } return; }
-        if (mode === 'free' && !tried) { tried = true; run.answer(false, v.msg); body.lastElementChild?.remove(); slot.append(fb(false, v.msg)); } else { sfx('bad'); slot.append(fb(false, v.msg)); }
+        if (mode === 'free' && !tried) { tried = true; run.answer(false, v.msg); slot.append(fb(false, v.msg)); } else { sfx('bad'); slot.append(fb(false, v.msg)); }
         run.footer('Try again', again);
       };
       body.append(h('p', { class: 'p' }, guide ? 'Trace ' : 'Now write ', h('b', null, d.r), guide ? `. ${strokesWord}, in order.` : ` from memory. ${strokesWord}.`), pad.el, slot,
@@ -105,10 +109,11 @@ export const writeKana = (k: string, mode: 'trace' | 'free'): Card => ({
 
 /** Words made only of letters the learner knows. Tap to hear. */
 export const showWords = (ids: string[], lead = 'You can already read real words. Tap each one to hear it.'): Card => ({
+  tag: 'read',
   build(run, body) {
     body.append(h('p', { class: 'p' }, lead), h('div', { class: 'wg' }, ...ids.map((id) => {
       meet(`w:${id}`);
-      return h('button', { class: 'wc', onclick: () => sayLine(id) }, ill(word(id).scene), h('b', { lang: 'ja' }, L[id].ja), h('small', null, L[id].en));
+      return h('button', { class: 'wc', onclick: () => sayLine(id) }, ill(word(id).scene), h('b', { lang: 'ja' }, L[id].ja), h('small', null, L[id].en), h('span', { class: 'pb' }, ic('sound', '')));
     })));
     run.footer('Next', run.next);
   },
@@ -117,6 +122,7 @@ export const showWords = (ids: string[], lead = 'You can already read real words
 /** Spell a word by tapping kana tiles, from its picture or from its sound. */
 export const spell = (id: string, cue: 'pic' | 'audio'): Card => ({
   item: `w:${id}`,
+  tag: 'read',
   build(run, body) {
     const target = L[id].ja, letters = [...target];
     const extra = pick(S.kana.filter((k) => !letters.includes(k)), Math.max(0, 5 - letters.length));
@@ -154,6 +160,7 @@ export const romajiOk = (kana: string, typed: string) => {
 /** Type the sound of one or more kana in English letters. */
 export const typeSound = (kana: string, o: { item?: string; skip?: (run: Run) => void; onResult?: (ok: boolean) => void } = {}): Card => ({
   item: o.item,
+  tag: 'read',
   build(run, body) {
     const many = [...kana].length > 1, want = [...kana].map((k) => kanaOf(k).r).join(' ');
     const input = h('input', { class: 'in', type: 'text', autocapitalize: 'none', autocomplete: 'off', autocorrect: 'off', spellcheck: 'false', placeholder: many ? 'for example: a ka' : 'for example: ka', 'aria-label': 'The sound in English letters' });
@@ -176,6 +183,7 @@ export interface SaySpec { id: string; cue: string; scene?: Scene; text?: boolea
 /** Say a phrase or word aloud. The phone shows what it heard; it never blocks, and the learner can overrule it. */
 export const sayIt = (s: SaySpec): Card => ({
   item: s.item,
+  tag: 'speak',
   build(run, body) {
     const slot = h('div', { style: { display: 'flex', flexDirection: 'column', gap: '10px' } }), hintSlot = h('div', null);
     const model = () => sayLine(s.id);
@@ -194,13 +202,13 @@ export const sayIt = (s: SaySpec): Card => ({
     canListen().then((can) => {
       if (!can || !S.settings.speech) return selfReport();
       let tries = 0, answered = false;
-      const mic = h('button', { class: 'rec' }, h('i', null), 'Tap and speak');
-      const finish = (ok: boolean, msg: string) => { if (answered) return; answered = true; mic.remove(); run.answer(ok, msg); };
+      const mic = h('button', { class: 'rec', 'aria-label': 'Tap and speak' }, ic('mic', ''), h('span', { class: 'lbl' }, 'Tap and speak'));
+      const finish = (ok: boolean, msg: string) => { if (answered) return; answered = true; mic.parentElement?.remove(); run.answer(ok, msg); };
       mic.addEventListener('click', async () => {
         if (mic.classList.contains('live')) return;
         mic.classList.add('live'); mic.lastChild!.textContent = 'Listening…'; slot.replaceChildren();
         let heard: string[] = [];
-        try { heard = await Promise.race([listenJa(), new Promise<string[]>((r) => setTimeout(() => r([]), 9000))]); } catch { mic.classList.remove('live'); mic.remove(); slot.replaceChildren(h('p', { class: 'hint c' }, 'The microphone is not available, so this one is on your honour.')); return selfReport(); }
+        try { heard = await Promise.race([listenJa(), new Promise<string[]>((r) => setTimeout(() => r([]), 9000))]); } catch { mic.classList.remove('live'); mic.parentElement?.remove(); slot.replaceChildren(h('p', { class: 'hint c' }, 'The microphone is not available, so this one is on your honour.')); return selfReport(); }
         mic.classList.remove('live'); mic.lastChild!.textContent = 'Tap and speak'; tries++;
         const ok = heardWord(heard, L[s.id].heard);
         slot.replaceChildren(h('div', { class: 'res' }, h('span', { class: 'ey' }, 'The phone heard'), h('span', { class: 'big', lang: 'ja' }, heard[0] || '(nothing clear)')));
@@ -211,7 +219,7 @@ export const sayIt = (s: SaySpec): Card => ({
         sfx('bad');
         if (tries >= 1) run.footer('Move on', () => { if (!answered && s.item) { answered = true; } run.next(); });
       });
-      body.append(mic, slot);
+      body.append(h("div", { class: "recwrap" }, mic), slot);
       run.footer('Next', run.next, false);
     });
   },
